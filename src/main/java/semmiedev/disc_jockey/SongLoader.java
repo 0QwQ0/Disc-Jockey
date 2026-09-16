@@ -11,42 +11,62 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Objects;
 
 public class SongLoader {
     public static final ArrayList<Song> SONGS = new ArrayList<>();
     public static final ArrayList<String> SONG_SUGGESTIONS = new ArrayList<>();
     public static volatile boolean loadingSongs;
     public static volatile boolean showToast;
+    public static int reloadVersion;
 
     public static void loadSongs() {
         if (loadingSongs) return;
+        loadingSongs = true;
+        Minecraft client = Minecraft.getInstance();
         Thread.startVirtualThread(() -> {
-            loadingSongs = true;
-            SONGS.clear();
-            SONG_SUGGESTIONS.clear();
-            SONG_SUGGESTIONS.add("Songs are loading, please wait");
-            for (File file : Objects.requireNonNull(Main.songsFolder.listFiles())) {
-                Song song = null;
-                try {
-                    song = loadSong(file);
-                } catch (Exception exception) {
-                    Main.LOGGER.error("Unable to read or parse song {}", file.getName(), exception);
+            ArrayList<Song> loadedSongs = new ArrayList<>();
+            try (var files = Files.newDirectoryStream(Main.songsFolder.toPath())) {
+                for (var path : files) {
+                    try {
+                        Song song = loadSong(path.toFile());
+                        if (song != null) loadedSongs.add(song);
+                    } catch (Exception exception) {
+                        Main.LOGGER.error("Unable to read or parse song {}", path.getFileName(), exception);
+                    }
                 }
-                if (song != null) SONGS.add(song);
+            } catch (IOException | java.nio.file.DirectoryIteratorException exception) {
+                Main.LOGGER.error("Unable to reload songs from {}", Main.songsFolder, exception);
+                client.execute(() -> {
+                    loadingSongs = false;
+                    SystemToast.add(client.gui.toastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME, Component.translatable(Main.MOD_ID + ".loading_failed"));
+                });
+                return;
             }
-            for (Song song : SONGS) SONG_SUGGESTIONS.add(song.displayName);
-            Main.config.favorites.removeIf(favorite -> SongLoader.SONGS.stream().map(song -> song.fileName).noneMatch(favorite::equals));
 
-            if (showToast) SystemToast.add(Minecraft.getInstance().gui.toastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME, Component.translatable(Main.MOD_ID + ".loading_done"));
-            showToast = true;
-            loadingSongs = false;
+            client.execute(() -> {
+                SONGS.clear();
+                SONG_SUGGESTIONS.clear();
+                loadedSongs.forEach(SongLoader::addSong);
+                Main.config.favorites.removeIf(favorite -> SONGS.stream().map(song -> song.fileName).noneMatch(favorite::equals));
+                reloadVersion++;
+                loadingSongs = false;
+                if (showToast) SystemToast.add(client.gui.toastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME, Component.translatable(Main.MOD_ID + ".loading_done"));
+                showToast = true;
+            });
         });
     }
 
+    public static void addSong(Song song) {
+        song.entry = new SongListWidget.SongEntry(song, SONGS.size());
+        song.entry.favorite = Main.config.favorites.contains(song.fileName);
+        SONGS.add(song);
+        SONG_SUGGESTIONS.add(song.displayName);
+    }
+
     public static Song loadSong(File file) throws IOException {
-        if (file.isFile()) {
-            BinaryReader reader = new BinaryReader(Files.newInputStream(file.toPath()));
+        if (!file.isFile()) return null;
+        try (var input = Files.newInputStream(file.toPath())) {
+            BinaryReader reader = new BinaryReader(input);
             Song song = new Song();
 
             song.fileName = file.getName().replaceAll("[\\n\\r]", "");
@@ -83,8 +103,6 @@ public class SongLoader {
             }
 
             song.displayName = song.name.replaceAll("\\s", "").isEmpty() ? song.fileName : song.name + " (" + song.fileName + ")";
-            song.entry = new SongListWidget.SongEntry(song, SONGS.size());
-            song.entry.favorite = Main.config.favorites.contains(song.fileName);
             song.searchableFileName = song.fileName.toLowerCase().replaceAll("\\s", "");
             song.searchableName = song.name.toLowerCase().replaceAll("\\s", "");
 
@@ -122,7 +140,6 @@ public class SongLoader {
 
             return song;
         }
-        return null;
     }
 
     public static void sort() {

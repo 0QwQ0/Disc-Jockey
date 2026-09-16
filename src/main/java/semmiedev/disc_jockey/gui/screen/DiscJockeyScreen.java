@@ -6,8 +6,10 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
+import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.Util;
@@ -20,6 +22,7 @@ import semmiedev.disc_jockey.gui.hud.BlocksOverlay;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -33,6 +36,8 @@ public class DiscJockeyScreen extends Screen {
             PLAY_STOP = Component.translatable(Main.MOD_ID + ".screen.play.stop"),
             PREVIEW = Component.translatable(Main.MOD_ID + ".screen.preview"),
             PREVIEW_STOP = Component.translatable(Main.MOD_ID + ".screen.preview.stop"),
+            REFRESH_SONGS = Component.translatable(Main.MOD_ID + ".screen.refresh_songs"),
+            LOADING_SONGS = Component.translatable(Main.MOD_ID + ".screen.loading_songs"),
             DROP_HINT = Component.translatable(Main.MOD_ID + ".screen.drop_hint").copy().withStyle(ChatFormatting.GRAY),
             SONG_STATE_PLAYING = Component.translatable(Main.MOD_ID + ".screen.songstate.playing").withStyle(style -> style.withItalic(true).withColor(0xDDDDDD)),
             SONG_STATE_PAUSED = Component.translatable(Main.MOD_ID + ".screen.songstate.paused").withStyle(style -> style.withItalic(true).withColor(0xDDDDDD)),
@@ -42,17 +47,21 @@ public class DiscJockeyScreen extends Screen {
             PLEASE_SELECT_SONG = Component.translatable(Main.MOD_ID + ".screen.please_select_song").withStyle(style -> style.withItalic(true)),
             CONFIG = Component.translatable(Main.MOD_ID + ".screen.config")
     ;
+    private static final Component PLAYBACK_SPEED = Component.translatable(Main.MOD_ID + ".screen.playback_speed");
+    private static final SystemToast.SystemToastId INVALID_SPEED_TOAST = new SystemToast.SystemToastId();
 
     private StringWidget songTitle;
     private StringWidget songState;
     private CycleButton<Boolean> playPauseButton;
     private SongTimeSliderWidget timeBar;
+    private EditBox speedInput;
 
     private SongListWidget songListWidget;
-    private Button playButton, previewButton;
+    private Button playButton, previewButton, refreshButton;
     private boolean shouldFilter;
     private String query = "";
     private int lastLoadedSongCount;
+    private int lastReloadVersion;
 
     public DiscJockeyScreen() {
         super(Main.NAME);
@@ -67,11 +76,13 @@ public class DiscJockeyScreen extends Screen {
         addRenderableWidget(songListWidget);
 
         List<SongListWidget.SongEntry> entries = new java.util.ArrayList<>();
-        for (int i = 0; i < SongLoader.SONGS.size(); i++) {
-            Song song = SongLoader.SONGS.get(i);
-            song.entry.songListWidget = songListWidget;
-            if (song.entry.selected) songListWidget.setSelected(song.entry);
-            entries.add(song.entry);
+        if (!SongLoader.loadingSongs) {
+            lastReloadVersion = SongLoader.reloadVersion;
+            for (Song song : SongLoader.SONGS) {
+                song.entry.songListWidget = songListWidget;
+                if (song.entry.selected) songListWidget.setSelected(song.entry);
+                entries.add(song.entry);
+            }
         }
         songListWidget.replaceEntries(entries);
 
@@ -190,13 +201,69 @@ public class DiscJockeyScreen extends Screen {
                 .build();
         addRenderableWidget(stopButton);
 
+        refreshButton = Button.builder(REFRESH_SONGS, _ -> {
+            SongLoader.loadSongs();
+            updateLoadingState();
+        }).pos(10, height - 80).size(100, 20).build();
+        addRenderableWidget(refreshButton);
+        updateLoadingState();
+
         addRenderableWidget(Button.builder(Component.translatable(Main.MOD_ID + ".screen.open_folder"), _ ->
                 Util.getPlatform().openPath(Main.songsFolder.toPath())
         ).pos(10, height - 55).size(100, 20).build());
 
+        int speedY = height - 30;
+        int labelWidth = font.width(PLAYBACK_SPEED);
         addRenderableWidget(Button.builder(CONFIG, _ ->
                 minecraft.gui.setScreen(me.shedaniel.autoconfig.AutoConfigClient.getConfigScreen(Config.class, this).get())
-        ).pos(10, height - 30).size(100, 20).build());
+        ).pos(leftX, speedY).size(100, 20).build());
+
+        int speedX = leftX + 100 + 6;
+        addRenderableOnly(new StringWidget(speedX, speedY, labelWidth, 20, PLAYBACK_SPEED, font));
+        speedInput = new EditBox(font, speedX + labelWidth + 2, speedY, 36, 20, PLAYBACK_SPEED) {
+            @Override
+            public void setFocused(boolean focused) {
+                boolean lostFocus = isFocused() && !focused;
+                super.setFocused(focused);
+                if (lostFocus) applyPlaybackSpeed();
+            }
+        };
+        speedInput.setValue(formatPlaybackSpeed());
+        addRenderableWidget(speedInput);
+        addRenderableOnly(new StringWidget(speedInput.getX() + speedInput.getWidth() + 2, speedY, font.width("x"), 20, Component.literal("x"), font));
+    }
+
+    private void applyPlaybackSpeed() {
+        String value = speedInput.getValue().trim();
+        boolean valid = value.matches("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)");
+        if (valid) {
+            float speed = Float.parseFloat(value);
+            valid = speed >= 0.0001f && speed <= 15.0f;
+            if (valid) Main.SONG_PLAYER.speed = speed;
+        }
+        if (!valid) {
+            SystemToast.add(minecraft.gui.toastManager(), INVALID_SPEED_TOAST, PLAYBACK_SPEED,
+                    Component.translatable(Main.MOD_ID + ".screen.invalid_playback_speed"));
+        }
+        speedInput.setValue(formatPlaybackSpeed());
+    }
+
+    private static String formatPlaybackSpeed() {
+        return new BigDecimal(Float.toString(Main.SONG_PLAYER.speed)).stripTrailingZeros().toPlainString();
+    }
+
+    @Override
+    public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
+        if (speedInput.isFocused() && !speedInput.isMouseOver(event.x(), event.y())) {
+            setFocused(null);
+        }
+        return super.mouseClicked(event, doubleClick);
+    }
+
+    @Override
+    public void removed() {
+        clearFocus();
+        super.removed();
     }
 
     private static Component getPlaybackStateText() {
@@ -234,6 +301,20 @@ public class DiscJockeyScreen extends Screen {
         int rightCenter = width / 2 + (width / 2 - 10) / 2;
         context.centeredText(font, DROP_HINT, width / 2, 5, 0xFFFFFFFF);
         context.centeredText(font, SELECT_SONG, rightCenter, 20, 0xFFFFFFFF);
+        if (SongLoader.loadingSongs) {
+            context.centeredText(font, LOADING_SONGS, rightCenter, 32 + (height - 96) / 2, 0xFFFFFFFF);
+        }
+    }
+
+    private void updateLoadingState() {
+        boolean loading = SongLoader.loadingSongs;
+        refreshButton.active = !loading;
+        refreshButton.setMessage(loading ? LOADING_SONGS : REFRESH_SONGS);
+        songListWidget.visible = !loading;
+        songListWidget.active = !loading;
+        if (loading) songListWidget.setSelected(null);
+        playButton.active = !loading || Main.SONG_PLAYER.running;
+        previewButton.active = !loading || Main.PREVIEWER.running;
     }
 
     @Override
@@ -246,7 +327,16 @@ public class DiscJockeyScreen extends Screen {
         previewButton.setMessage(Main.PREVIEWER.running ? PREVIEW_STOP : PREVIEW);
         playButton.setMessage(Main.SONG_PLAYER.running ? PLAY_STOP : PLAY);
 
-        if (!SongLoader.loadingSongs && SongLoader.SONGS.size() != lastLoadedSongCount) {
+        updateLoadingState();
+        if (SongLoader.loadingSongs) return;
+
+        if (SongLoader.reloadVersion != lastReloadVersion) {
+            lastReloadVersion = SongLoader.reloadVersion;
+            songListWidget.setSelected(null);
+            shouldFilter = true;
+        }
+
+        if (SongLoader.SONGS.size() != lastLoadedSongCount) {
             lastLoadedSongCount = SongLoader.SONGS.size();
             shouldFilter = true;
         }
@@ -273,6 +363,10 @@ public class DiscJockeyScreen extends Screen {
 
     @Override
     public void onFilesDrop(List<Path> paths) {
+        if (SongLoader.loadingSongs) {
+            SystemToast.add(minecraft.gui.toastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME, Component.translatable(Main.MOD_ID + ".still_loading"));
+            return;
+        }
         String string = paths.stream().map(Path::getFileName).map(Path::toString).collect(Collectors.joining(", "));
         if (string.length() > 300) string = string.substring(0, 300) + "...";
 
@@ -287,7 +381,7 @@ public class DiscJockeyScreen extends Screen {
                         Song song = SongLoader.loadSong(file);
                         if (song != null) {
                             Files.copy(path, Main.songsFolder.toPath().resolve(file.getName()));
-                            SongLoader.SONGS.add(song);
+                            SongLoader.addSong(song);
                         }
                     } catch (IOException exception) {
                         Main.LOGGER.warn("Failed to copy song file from {} to {}", path, Main.songsFolder.toPath(), exception);

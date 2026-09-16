@@ -60,7 +60,7 @@ public class SongPlayer implements ClientTickEvents.StartLevelTick {
     public long playbackLoopDelay = 5;
     // Just for external debugging purposes
     public HashMap<Block, Integer> missingInstrumentBlocks = new HashMap<>();
-    public float speed = 1.0f; // Toy
+    public volatile float speed = 1.0f;
 
     private long lastInteractAt = -1;
     private float availableInteracts = 8;

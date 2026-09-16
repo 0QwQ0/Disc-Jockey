@@ -31,7 +31,7 @@ public class Previewer implements ClientTickEvents.StartLevelTick {
     public void onStartTick(@NonNull ClientLevel world) {
         while (running) {
             long note = song.notes[i];
-            if ((short)note == Math.round(tick)) {
+            if ((short)note <= Math.round(tick)) {
                 Vec3 pos = Minecraft.getInstance().player.position();
                 world.playLocalSound(pos.x, pos.y, pos.z, Note.INSTRUMENTS[(byte)(note >> Note.INSTRUMENT_SHIFT)].getSoundEvent().value(), SoundSource.RECORDS, 3, (float)Math.pow(2.0, ((byte)(note >> Note.NOTE_SHIFT) - 12) / 12.0), false);
                 i++;
@@ -44,6 +44,6 @@ public class Previewer implements ClientTickEvents.StartLevelTick {
             }
         }
 
-        tick += song.tempo / 100f / 20f;
+        if (running) tick += song.tempo / 100f / 20f * Main.SONG_PLAYER.speed;
     }
 }
