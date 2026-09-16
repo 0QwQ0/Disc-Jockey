@@ -14,6 +14,7 @@ import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.component.SwingAnimation;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -212,7 +213,8 @@ public class SongPlayer implements ClientTickEvents.StartLevelTick {
                         reducePacketsUntil = Math.max(reducePacketsUntil, now + 500);
                     }
                     if ((lastSwingSentAt == -1L || now - lastSwingSentAt >= 50) &&last100MsSpanEstimatedPackets < last100MsReducePacketsAfter && (reducePacketsUntil == -1L || reducePacketsUntil < now)) {
-                        client.submit(() -> client.player.swing(InteractionHand.MAIN_HAND));
+                        SwingAnimation swingAnimation = client.player.getMainHandItem().getAttackAnimation();
+                        client.submit(() -> client.player.swing(InteractionHand.MAIN_HAND, swingAnimation, false));
                         lastSwingSentAt = now;
                         last100MsSpanEstimatedPackets++;
                     } else if (last100MsSpanEstimatedPackets  >= last100MsReducePacketsAfter){
@@ -468,7 +470,7 @@ public class SongPlayer implements ClientTickEvents.StartLevelTick {
             if (lastBlockPos != null) {
                 // Turn head into spinning with time and lookup up further the further tuning is progressed
                 //client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.LookAndOnGround(((float) (System.currentTimeMillis() % 2000)) * (360f/2000f), (1 - roughTuneProgress) * 180 - 90, true));
-                client.player.swing(InteractionHand.MAIN_HAND);
+                client.player.swing(InteractionHand.MAIN_HAND, client.player.getMainHandItem().getInteractAnimation(), false);
             }
         } else if ((playbackThread == null || !playbackThread.isAlive()) && running && Main.config.disableAsyncPlayback) {
             // Sync playback (off by default). Replacement for playback thread

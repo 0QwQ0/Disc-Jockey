@@ -1,5 +1,6 @@
 package semmiedev.disc_jockey.gui.screen;
 
+import com.mojang.blaze3d.Blaze3D;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -10,7 +11,6 @@ import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.util.Util;
 import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.NonNull;
 import semmiedev.disc_jockey.*;
@@ -191,7 +191,7 @@ public class DiscJockeyScreen extends Screen {
         addRenderableWidget(stopButton);
 
         addRenderableWidget(Button.builder(Component.translatable(Main.MOD_ID + ".screen.open_folder"), _ ->
-                Util.getPlatform().openPath(Main.songsFolder.toPath())
+                Blaze3D.openPath(Main.songsFolder.toPath())
         ).pos(10, height - 55).size(100, 20).build());
 
         addRenderableWidget(Button.builder(CONFIG, _ ->

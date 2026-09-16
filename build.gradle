@@ -20,10 +20,10 @@ dependencies {
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
-    implementation "me.shedaniel.cloth:cloth-config-fabric:26.2.155"
-    include "me.shedaniel.cloth:cloth-config-fabric:26.2.155"
+    implementation "me.shedaniel.cloth:cloth-config-fabric:26.3.158"
+    include "me.shedaniel.cloth:cloth-config-fabric:26.3.158"
 
-    compileOnly "com.terraformersmc:modmenu:20.0.1"
+    compileOnly "com.terraformersmc:modmenu:21.0.0-beta.1"
 }
 
 processResources {
