@@ -11,7 +11,7 @@ public class BlocksOverlay {
     public static ItemStack[] itemStacks;
     public static int[] amounts;
     public static int amountOfNoteBlocks;
-    public static String songFileName;
+    public static String songRelativePath;
 
     private static final ItemStack NOTE_BLOCK = Blocks.NOTE_BLOCK.asItem().getDefaultInstance();
 

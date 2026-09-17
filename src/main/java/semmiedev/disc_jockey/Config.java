@@ -4,6 +4,8 @@ import me.shedaniel.autoconfig.ConfigData;
 import me.shedaniel.autoconfig.annotation.ConfigEntry;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 @me.shedaniel.autoconfig.annotation.Config(name = Main.MOD_ID)
 @me.shedaniel.autoconfig.annotation.Config.Gui.Background("textures/block/note_block.png")
@@ -36,4 +38,7 @@ public class Config implements ConfigData {
 
     @ConfigEntry.Gui.Excluded
     public ArrayList<String> favorites = new ArrayList<>();
+
+    @ConfigEntry.Gui.Excluded
+    public Map<String, String> songSpeeds = new HashMap<>();
 }

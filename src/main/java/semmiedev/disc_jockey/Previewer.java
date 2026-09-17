@@ -16,6 +16,7 @@ public class Previewer implements ClientTickEvents.StartLevelTick {
 
     public void start(Song song) {
         this.song = song;
+        Main.SONG_PLAYER.loadSongSpeed(song);
         Main.TICK_LISTENERS.add(this);
         running = true;
     }

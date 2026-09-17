@@ -10,13 +10,13 @@ public class Song {
     public long[] notes = new long[0];
 
     public short length, height, tempo, loopStartTick;
-    public String fileName, name, author, originalAuthor, description, displayName;
+    public String relativePath, fileName, name, author, originalAuthor, description, displayName;
     public byte autoSaving, autoSavingDuration, timeSignature, vanillaInstrumentCount, formatVersion, loop, maxLoopCount;
     public int minutesSpent, leftClicks, rightClicks, blocksAdded, blocksRemoved;
     public String importFileName;
 
     public SongListWidget.SongEntry entry;
-    public String searchableFileName, searchableName;
+    public String searchableRelativePath, searchableName;
 
     @Override
     public String toString() {

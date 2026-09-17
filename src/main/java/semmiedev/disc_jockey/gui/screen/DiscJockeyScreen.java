@@ -7,6 +7,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -20,13 +21,14 @@ import semmiedev.disc_jockey.gui.SongListWidget;
 import semmiedev.disc_jockey.gui.SongTimeSliderWidget;
 import semmiedev.disc_jockey.gui.hud.BlocksOverlay;
 
-import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 public class DiscJockeyScreen extends Screen {
@@ -55,9 +57,12 @@ public class DiscJockeyScreen extends Screen {
     private CycleButton<Boolean> playPauseButton;
     private SongTimeSliderWidget timeBar;
     private EditBox speedInput;
+    private float displayedSpeed;
 
     private SongListWidget songListWidget;
-    private Button playButton, previewButton, refreshButton;
+    private Button playButton, previewButton, blocksButton, refreshButton, parentDirectoryButton;
+    private StringWidget directoryLabel;
+    private String currentDirectory = "";
     private boolean shouldFilter;
     private String query = "";
     private int lastLoadedSongCount;
@@ -69,25 +74,31 @@ public class DiscJockeyScreen extends Screen {
 
     @Override
     protected void init() {
-        shouldFilter = true;
-
-        songListWidget = new SongListWidget(minecraft, width / 2 - 10, height - 64 - 32, 32, 20);
+        songListWidget = new SongListWidget(minecraft, width / 2 - 10, height - 64 - 56, 56, 20);
         songListWidget.setX(width / 2);
         addRenderableWidget(songListWidget);
 
-        List<SongListWidget.SongEntry> entries = new java.util.ArrayList<>();
         if (!SongLoader.loadingSongs) {
             lastReloadVersion = SongLoader.reloadVersion;
+            if (!currentDirectory.isEmpty() && !SongLoader.DIRECTORIES.contains(currentDirectory)) currentDirectory = "";
             for (Song song : SongLoader.SONGS) {
                 song.entry.songListWidget = songListWidget;
                 if (song.entry.selected) songListWidget.setSelected(song.entry);
-                entries.add(song.entry);
             }
         }
-        songListWidget.replaceEntries(entries);
+        refreshSongEntries();
 
         // Right panel buttons layout - dynamically centered
         int rightCenter = width / 2 + (width / 2 - 10) / 2;
+        parentDirectoryButton = Button.builder(Component.translatable(Main.MOD_ID + ".screen.parent_directory"), _ -> {
+            int separator = currentDirectory.lastIndexOf('/');
+            changeDirectory(separator < 0 ? "" : currentDirectory.substring(0, separator));
+        }).bounds(width / 2, 32, 60, 20).build();
+        addRenderableWidget(parentDirectoryButton);
+        directoryLabel = new StringWidget(width / 2 + 64, 32, width / 2 - 74, 20, Component.empty(), font);
+        addRenderableWidget(directoryLabel);
+        updateDirectoryHeader();
+
         int btnY = height - 61;
         int btnW = Math.min(100, (width / 2 - 10 - 20) / 3);
         int gap = Math.min(10, (width / 2 - 10 - btnW * 3) / 2);
@@ -97,7 +108,7 @@ public class DiscJockeyScreen extends Screen {
             if (Main.SONG_PLAYER.running) {
                 Main.SONG_PLAYER.stop();
             } else {
-                SongListWidget.SongEntry entry = songListWidget.getSelected();
+                SongListWidget.SongEntry entry = songListWidget.getSelectedSongEntry();
                 if (entry != null) {
                     Main.SONG_PLAYER.start(entry.song);
                 }
@@ -109,26 +120,26 @@ public class DiscJockeyScreen extends Screen {
             if (Main.PREVIEWER.running) {
                 Main.PREVIEWER.stop();
             } else {
-                SongListWidget.SongEntry entry = songListWidget.getSelected();
+                SongListWidget.SongEntry entry = songListWidget.getSelectedSongEntry();
                 if (entry != null) Main.PREVIEWER.start(entry.song);
             }
         }).bounds(btnStart + btnW + gap, btnY, btnW, 20).build();
         addRenderableWidget(previewButton);
 
-        addRenderableWidget(Button.builder(Component.translatable(Main.MOD_ID + ".screen.blocks"), _ -> {
-                SongListWidget.SongEntry entry = songListWidget.getSelected();
+        blocksButton = Button.builder(Component.translatable(Main.MOD_ID + ".screen.blocks"), _ -> {
+                SongListWidget.SongEntry entry = songListWidget.getSelectedSongEntry();
                 if (entry == null) return;
 
                 // Same song -> close overlay
                 // different/not shown -> show/update
-                if (BlocksOverlay.itemStacks != null && entry.song.fileName.equals(BlocksOverlay.songFileName)) {
+                if (BlocksOverlay.itemStacks != null && entry.song.relativePath.equals(BlocksOverlay.songRelativePath)) {
                     BlocksOverlay.itemStacks = null;
                     return;
                 }
 
                 minecraft.gui.setScreen(null);
 
-                BlocksOverlay.songFileName = entry.song.fileName;
+                BlocksOverlay.songRelativePath = entry.song.relativePath;
                 BlocksOverlay.amountOfNoteBlocks = entry.song.uniqueNotes.size();
                 BlocksOverlay.itemStacks = new ItemStack[0];
                 BlocksOverlay.amounts = new int[0];
@@ -154,12 +165,13 @@ public class DiscJockeyScreen extends Screen {
                         BlocksOverlay.amounts[index] = BlocksOverlay.amounts[index] + 1;
                     }
                 }
-        }).bounds(btnStart + (btnW + gap) * 2, btnY, btnW, 20).build());
+        }).bounds(btnStart + (btnW + gap) * 2, btnY, btnW, 20).build();
+        addRenderableWidget(blocksButton);
 
         int searchW = Math.min(150, width / 2 - 30);
         EditBox searchBar = new EditBox(font, rightCenter - searchW / 2, height - 31, searchW, 20, Component.translatable(Main.MOD_ID + ".screen.search"));
+        searchBar.setValue(query);
         searchBar.setResponder(query -> {
-            query = query.toLowerCase().replaceAll("\\s", "");
             if (this.query.equals(query)) return;
             this.query = query;
             shouldFilter = true;
@@ -174,6 +186,7 @@ public class DiscJockeyScreen extends Screen {
         addRenderableWidget(songState);
 
         songTitle = new StringWidget(leftX, topY + 20, leftWidth, 20, Component.empty(), font);
+        songTitle.setMaxWidth(leftWidth);
         addRenderableWidget(songTitle);
 
         timeBar = new SongTimeSliderWidget(leftX, topY + 40, leftWidth, 25);
@@ -228,7 +241,7 @@ public class DiscJockeyScreen extends Screen {
                 if (lostFocus) applyPlaybackSpeed();
             }
         };
-        speedInput.setValue(formatPlaybackSpeed());
+        updatePlaybackSpeedInput();
         addRenderableWidget(speedInput);
         addRenderableOnly(new StringWidget(speedInput.getX() + speedInput.getWidth() + 2, speedY, font.width("x"), 20, Component.literal("x"), font));
     }
@@ -239,17 +252,18 @@ public class DiscJockeyScreen extends Screen {
         if (valid) {
             float speed = Float.parseFloat(value);
             valid = speed >= 0.0001f && speed <= 15.0f;
-            if (valid) Main.SONG_PLAYER.speed = speed;
+            if (valid) Main.SONG_PLAYER.setSpeed(value);
         }
         if (!valid) {
             SystemToast.add(minecraft.gui.toastManager(), INVALID_SPEED_TOAST, PLAYBACK_SPEED,
                     Component.translatable(Main.MOD_ID + ".screen.invalid_playback_speed"));
         }
-        speedInput.setValue(formatPlaybackSpeed());
+        updatePlaybackSpeedInput();
     }
 
-    private static String formatPlaybackSpeed() {
-        return new BigDecimal(Float.toString(Main.SONG_PLAYER.speed)).stripTrailingZeros().toPlainString();
+    private void updatePlaybackSpeedInput() {
+        displayedSpeed = Main.SONG_PLAYER.speed;
+        speedInput.setValue(new BigDecimal(Float.toString(displayedSpeed)).stripTrailingZeros().toPlainString());
     }
 
     @Override
@@ -302,7 +316,7 @@ public class DiscJockeyScreen extends Screen {
         context.centeredText(font, DROP_HINT, width / 2, 5, 0xFFFFFFFF);
         context.centeredText(font, SELECT_SONG, rightCenter, 20, 0xFFFFFFFF);
         if (SongLoader.loadingSongs) {
-            context.centeredText(font, LOADING_SONGS, rightCenter, 32 + (height - 96) / 2, 0xFFFFFFFF);
+            context.centeredText(font, LOADING_SONGS, rightCenter, 56 + (height - 120) / 2, 0xFFFFFFFF);
         }
     }
 
@@ -313,12 +327,64 @@ public class DiscJockeyScreen extends Screen {
         songListWidget.visible = !loading;
         songListWidget.active = !loading;
         if (loading) songListWidget.setSelected(null);
-        playButton.active = !loading || Main.SONG_PLAYER.running;
-        previewButton.active = !loading || Main.PREVIEWER.running;
+        boolean hasSelection = !loading && songListWidget.getSelectedSongEntry() != null;
+        playButton.active = hasSelection || Main.SONG_PLAYER.running;
+        previewButton.active = hasSelection || Main.PREVIEWER.running;
+        blocksButton.active = hasSelection;
+        playPauseButton.active = Main.SONG_PLAYER.song != null;
+        parentDirectoryButton.active = !loading && !currentDirectory.isEmpty();
+    }
+
+    private void changeDirectory(String directory) {
+        currentDirectory = directory;
+        songListWidget.setSelected(null);
+        shouldFilter = true;
+        updateDirectoryHeader();
+        updateLoadingState();
+    }
+
+    private void updateDirectoryHeader() {
+        Component location = Component.translatable(Main.MOD_ID + ".screen.current_directory",
+                currentDirectory.isEmpty() ? "/" : currentDirectory + "/");
+        directoryLabel.setMessage(location);
+        directoryLabel.setTooltip(Tooltip.create(location));
+    }
+
+    private void refreshSongEntries() {
+        shouldFilter = false;
+        songListWidget.setScrollAmount(0);
+        List<SongListWidget.ListEntry> entries = new java.util.ArrayList<>();
+        String search = query.toLowerCase(Locale.ROOT).replaceAll("\\s", "");
+        String prefix = currentDirectory.isEmpty() ? "" : currentDirectory + "/";
+        if (search.isEmpty()) {
+            for (String directory : SongLoader.DIRECTORIES) {
+                if (directory.startsWith(prefix) && directory.indexOf('/', prefix.length()) < 0) {
+                    entries.add(new SongListWidget.DirectoryEntry(directory, this::changeDirectory));
+                }
+            }
+        }
+
+        int favoriteIndex = entries.size();
+        for (Song song : SongLoader.SONGS) {
+            if (!song.relativePath.startsWith(prefix)) continue;
+            if (search.isEmpty()) {
+                if (song.relativePath.indexOf('/', prefix.length()) >= 0) continue;
+            } else if (!song.searchableRelativePath.contains(search) && !song.searchableName.contains(search)) {
+                continue;
+            }
+            song.entry.songListWidget = songListWidget;
+            if (song.entry.favorite) {
+                entries.add(favoriteIndex++, song.entry);
+            } else {
+                entries.add(song.entry);
+            }
+        }
+        songListWidget.setEntries(entries, !search.isEmpty());
     }
 
     @Override
     public void tick() {
+        if (displayedSpeed != Main.SONG_PLAYER.speed) updatePlaybackSpeedInput();
         songState.setMessage(getPlaybackStateText());
         timeBar.update();
         playPauseButton.setValue(Main.SONG_PLAYER.running);
@@ -334,6 +400,9 @@ public class DiscJockeyScreen extends Screen {
             lastReloadVersion = SongLoader.reloadVersion;
             songListWidget.setSelected(null);
             shouldFilter = true;
+            if (!currentDirectory.isEmpty() && !SongLoader.DIRECTORIES.contains(currentDirectory)) {
+                changeDirectory("");
+            }
         }
 
         if (SongLoader.SONGS.size() != lastLoadedSongCount) {
@@ -342,22 +411,8 @@ public class DiscJockeyScreen extends Screen {
         }
 
         if (shouldFilter) {
-            shouldFilter = false;
-            songListWidget.setScrollAmount(0);
-            List<SongListWidget.SongEntry> newEntries = new java.util.ArrayList<>();
-            boolean empty = query.isEmpty();
-            int favoriteIndex = 0;
-            for (Song song : SongLoader.SONGS) {
-                if (empty || song.searchableFileName.contains(query) || song.searchableName.contains(query)) {
-                    song.entry.songListWidget = songListWidget;
-                    if (song.entry.favorite) {
-                        newEntries.add(favoriteIndex++, song.entry);
-                    } else {
-                        newEntries.add(song.entry);
-                    }
-                }
-            }
-            songListWidget.replaceEntries(newEntries);
+            refreshSongEntries();
+            updateLoadingState();
         }
     }
 
@@ -367,31 +422,34 @@ public class DiscJockeyScreen extends Screen {
             SystemToast.add(minecraft.gui.toastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME, Component.translatable(Main.MOD_ID + ".still_loading"));
             return;
         }
-        String string = paths.stream().map(Path::getFileName).map(Path::toString).collect(Collectors.joining(", "));
+        List<Path> files = paths.stream().filter(Files::isRegularFile).toList();
+        if (files.isEmpty()) return;
+        Path targetDirectory = Main.songsFolder.toPath().resolve(currentDirectory);
+        String string = files.stream().map(Path::getFileName).map(Path::toString).collect(Collectors.joining(", "));
         if (string.length() > 300) string = string.substring(0, 300) + "...";
 
         minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
             if (confirmed) {
-                paths.forEach(path -> {
+                files.forEach(path -> {
+                    Path target = targetDirectory.resolve(path.getFileName());
                     try {
-                        File file = path.toFile();
-
-                        if (SongLoader.SONGS.stream().anyMatch(input -> input.fileName.equalsIgnoreCase(file.getName()))) return;
-
-                        Song song = SongLoader.loadSong(file);
+                        if (Files.exists(target)) throw new FileAlreadyExistsException(target.toString());
+                        Song song = SongLoader.loadSong(path.toFile(), SongLoader.relativePath(target));
                         if (song != null) {
-                            Files.copy(path, Main.songsFolder.toPath().resolve(file.getName()));
+                            Files.copy(path, target);
                             SongLoader.addSong(song);
                         }
                     } catch (IOException exception) {
-                        Main.LOGGER.warn("Failed to copy song file from {} to {}", path, Main.songsFolder.toPath(), exception);
+                        Main.LOGGER.warn("Failed to import song file from {} to {}", path, target, exception);
+                        SystemToast.add(minecraft.gui.toastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME,
+                                Component.translatable(Main.MOD_ID + ".screen.import_failed", SongLoader.relativePath(target)));
                     }
                 });
 
                 SongLoader.sort();
             }
             minecraft.gui.setScreen(this);
-        }, Component.translatable(Main.MOD_ID + ".screen.drop_confirm"), Component.literal(string)));
+        }, Component.translatable(Main.MOD_ID + ".screen.drop_confirm", currentDirectory.isEmpty() ? "/" : currentDirectory + "/"), Component.literal(string)));
     }
 
     @Override
