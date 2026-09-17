@@ -27,6 +27,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -61,6 +63,7 @@ public class SongPlayer implements ClientTickEvents.StartLevelTick {
     // Just for external debugging purposes
     public HashMap<Block, Integer> missingInstrumentBlocks = new HashMap<>();
     public volatile float speed = 1.0f;
+    private Song speedSong;
 
     private long lastInteractAt = -1;
     private float availableInteracts = 8;
@@ -108,6 +111,7 @@ public class SongPlayer implements ClientTickEvents.StartLevelTick {
         }
         if (running) stop();
         this.song = song;
+        loadSongSpeed(song);
         //Main.LOGGER.info("Song length: " + song.length + " and tempo " + song.tempo);
         //Main.TICK_LISTENERS.add(this);
         if (this.playbackThread == null) startPlaybackThread();
@@ -121,6 +125,46 @@ public class SongPlayer implements ClientTickEvents.StartLevelTick {
         lastSwingSentAt = -1L;
         missingInstrumentBlocks.clear();
         didSongReachEnd = false;
+    }
+
+    public synchronized void loadSongSpeed(Song song) {
+        speedSong = song;
+
+        /*
+         * Heuristic search: if the configuration has no songSpeeds data for the target song,
+         * scan all songSpeeds entries. If an entry's filename exactly matches the current
+         * song's filename and the file cannot be found at the path that entry points to,
+         * we can infer that the current song file was moved from the old path to the new
+         * path, while the configuration still points to the old path.
+         * So, delete the old key from the configuration file, create a new key with the same
+         * speed data, and load it.
+         */
+        if (!Main.config.songSpeeds.containsKey(song.relativePath)) {
+            String fileName = Path.of(song.relativePath).getFileName().toString();
+            String oldKey = null;
+            for (String key : Main.config.songSpeeds.keySet()) {
+                Path oldPath = Path.of(key);
+                if (oldPath.getFileName().toString().equals(fileName)
+                        && Files.notExists(Main.songsFolder.toPath().resolve(oldPath))) {
+                    oldKey = key;
+                    break;
+                }
+            }
+            if (oldKey != null) {
+                String savedSpeed = Main.config.songSpeeds.remove(oldKey);
+                Main.config.songSpeeds.put(song.relativePath, savedSpeed);
+                Main.configHolder.save();
+            }
+        }
+        speed = Float.parseFloat(Main.config.songSpeeds.getOrDefault(song.relativePath, "1"));
+    }
+
+    public synchronized void setSpeed(String speed) {
+        this.speed = Float.parseFloat(speed);
+        if (speedSong != null) {
+            Main.config.songSpeeds.put(speedSong.relativePath, speed);
+            Main.configHolder.save();
+        }
     }
 
     public synchronized void stop() {

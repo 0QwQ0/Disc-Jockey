@@ -3,7 +3,9 @@ package semmiedev.disc_jockey.gui;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ObjectSelectionList;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
@@ -13,7 +15,11 @@ import org.jspecify.annotations.NonNull;
 import semmiedev.disc_jockey.Main;
 import semmiedev.disc_jockey.Song;
 
-public class SongListWidget extends ObjectSelectionList<SongListWidget.SongEntry> {
+import java.util.Collection;
+import java.util.function.Consumer;
+
+public class SongListWidget extends ObjectSelectionList<SongListWidget.ListEntry> {
+    private boolean showRelativePath;
 
     public SongListWidget(Minecraft client, int width, int height, int top, int itemHeight) {
         super(client, width, height, top, itemHeight);
@@ -25,11 +31,27 @@ public class SongListWidget extends ObjectSelectionList<SongListWidget.SongEntry
     }
 
     @Override
-    public void setSelected(@Nullable SongListWidget.SongEntry entry) {
-        SongListWidget.SongEntry selectedEntry = getSelected();
+    public void setSelected(@Nullable ListEntry entry) {
+        SongEntry selectedEntry = getSelectedSongEntry();
         if (selectedEntry != null) selectedEntry.selected = false;
-        if (entry != null) entry.selected = true;
+        if (entry instanceof SongEntry songEntry) songEntry.selected = true;
         super.setSelected(entry);
+    }
+
+    public @Nullable SongEntry getSelectedSongEntry() {
+        return getSelected() instanceof SongEntry entry ? entry : null;
+    }
+
+    public void setEntries(Collection<ListEntry> entries, boolean showRelativePath) {
+        ListEntry selected = getSelected();
+        this.showRelativePath = showRelativePath;
+        setSelected(null);
+        clearEntries();
+        setFocused(null);
+        for (ListEntry entry : entries) {
+            addEntry(entry, showRelativePath && entry instanceof SongEntry ? 32 : defaultEntryHeight);
+        }
+        setSelected(entries.contains(selected) ? selected : null);
     }
 
     @Override
@@ -37,7 +59,55 @@ public class SongListWidget extends ObjectSelectionList<SongListWidget.SongEntry
         // Who cares
     }
 
-    public static class SongEntry extends Entry<SongEntry> {
+    public abstract static class ListEntry extends Entry<ListEntry> {
+        protected final Minecraft client = Minecraft.getInstance();
+
+        protected void drawText(GuiGraphicsExtractor context, String text, int x, int y, int width, int color) {
+            context.text(client.font, client.font.plainSubstrByWidth(text, width), x, y, color);
+        }
+    }
+
+    public static class DirectoryEntry extends ListEntry {
+        public final String relativePath;
+        private final Consumer<String> openDirectory;
+
+        public DirectoryEntry(String relativePath, Consumer<String> openDirectory) {
+            this.relativePath = relativePath;
+            this.openDirectory = openDirectory;
+        }
+
+        @Override
+        public @NonNull Component getNarration() {
+            return Component.literal(relativePath);
+        }
+
+        @Override
+        public void extractContent(@NonNull GuiGraphicsExtractor context, int mouseX, int mouseY, boolean hovered, float tickDelta) {
+            int x = getX();
+            int y = getY();
+            context.fill(x + 4, y + 5, x + 10, y + 8, 0xFFD5AE50);
+            context.fill(x + 4, y + 8, x + 17, y + 16, 0xFFEAC968);
+            String name = relativePath.substring(relativePath.lastIndexOf('/') + 1) + "/";
+            drawText(context, name, x + 23, y + 6, getWidth() - 27, 0xFFFFFFFF);
+            if (hovered) context.setTooltipForNextFrame(Component.literal(relativePath), mouseX, mouseY);
+        }
+
+        @Override
+        public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+            if (event.button() != 0) return false;
+            openDirectory.accept(relativePath);
+            return true;
+        }
+
+        @Override
+        public boolean keyPressed(KeyEvent event) {
+            if (!event.isConfirmation()) return false;
+            openDirectory.accept(relativePath);
+            return true;
+        }
+    }
+
+    public static class SongEntry extends ListEntry {
         private static final Identifier ICONS = Identifier.fromNamespaceAndPath(Main.MOD_ID, "textures/gui/icons.png");
 
         public final int index;
@@ -45,8 +115,6 @@ public class SongListWidget extends ObjectSelectionList<SongListWidget.SongEntry
 
         public boolean selected, favorite;
         public SongListWidget songListWidget;
-
-        private final Minecraft client = Minecraft.getInstance();
 
         private int x;
         private int y;
@@ -73,7 +141,14 @@ public class SongListWidget extends ObjectSelectionList<SongListWidget.SongEntry
                 context.fill(x + 1, y + 1, x + entryWidth - 1, y + entryHeight - 1, 0xFF000000);
             }
 
-            context.centeredText(client.font, song.displayName, x + entryWidth / 2, y + 6, isSelected ? 0xFFFFFFFF : 0xFF808080);
+            drawText(context, song.displayName, x + 23, y + 6, entryWidth - 27, isSelected ? 0xFFFFFFFF : 0xFF808080);
+            if (songListWidget.showRelativePath) {
+                drawText(context, song.relativePath, x + 23, y + 18, entryWidth - 27, 0xFF808080);
+            }
+            if (hovered && !isOverFavoriteButton(mouseX, mouseY)) {
+                context.setTooltipForNextFrame(Tooltip.splitTooltip(client,
+                        Component.literal(song.displayName)), mouseX, mouseY);
+            }
 
             int u = (favorite ? 26 : 0) + (isOverFavoriteButton(mouseX, mouseY) ? 13 : 0);
             context.blit(RenderPipelines.GUI_TEXTURED, ICONS, x + 4, y + 3, (float)u, 0.0f, 13, 12, 52, 12);
@@ -86,9 +161,9 @@ public class SongListWidget extends ObjectSelectionList<SongListWidget.SongEntry
             if (mouseX > x + 4 && mouseX < x + 17 && mouseY > y + 3 && mouseY < y + 15) {
                 favorite = !favorite;
                 if (favorite) {
-                    Main.config.favorites.add(song.fileName);
+                    Main.config.favorites.add(song.relativePath);
                 } else {
-                    Main.config.favorites.remove(song.fileName);
+                    Main.config.favorites.remove(song.relativePath);
                 }
                 return true;
             }
