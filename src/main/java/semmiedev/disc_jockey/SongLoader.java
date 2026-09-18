@@ -71,6 +71,8 @@ public class SongLoader {
                 loadedSongs.forEach(SongLoader::addSong);
                 sort();
                 Main.config.favorites.removeIf(favorite -> SONGS.stream().map(song -> song.relativePath).noneMatch(favorite::equals));
+                // Songs were recreated, so playlist entries have to be resolved again.
+                PlaylistManager.resolveFromConfig();
                 reloadVersion++;
                 loadingSongs = false;
                 if (showToast) SystemToast.add(client.gui.toastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME, Component.translatable(Main.MOD_ID + ".loading_done"));

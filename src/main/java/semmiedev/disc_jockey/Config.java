@@ -41,4 +41,25 @@ public class Config implements ConfigData {
 
     @ConfigEntry.Gui.Excluded
     public Map<String, String> songSpeeds = new HashMap<>();
+
+    /** Playlist entries, in user order, stored as song paths relative to the songs folder. */
+    @ConfigEntry.Gui.Excluded
+    public ArrayList<String> playlist = new ArrayList<>();
+
+    /** What happens when a song finishes. */
+    public enum RepeatMode {
+        /** Play through the playlist once, then stop. */
+        SEQUENTIAL,
+        /** After the last playlist entry, wrap around to the first. */
+        PLAYLIST,
+        /** Keep repeating the song that is currently playing. */
+        SINGLE
+    }
+
+    @ConfigEntry.Gui.Excluded
+    public RepeatMode repeatMode = RepeatMode.SEQUENTIAL;
+
+    /** When true, the playlist is traversed in a shuffled order instead of its stored order. */
+    @ConfigEntry.Gui.Excluded
+    public boolean shufflePlaylist = false;
 }
