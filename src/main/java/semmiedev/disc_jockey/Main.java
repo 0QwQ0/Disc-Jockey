@@ -34,6 +34,7 @@ public class Main implements ClientModInitializer {
     public static final ArrayList<ClientTickEvents.StartLevelTick> TICK_LISTENERS = new ArrayList<>();
     public static final Previewer PREVIEWER = new Previewer();
     public static final SongPlayer SONG_PLAYER = new SongPlayer();
+    public static final PlaylistManager PLAYLIST = new PlaylistManager();
 
     public static File songsFolder;
     public static Config config;
