@@ -286,15 +286,23 @@ public class PlaylistManager implements ClientTickEvents.StartLevelTick {
      */
     private static Song advanceTarget() {
         if (ENTRIES.isEmpty()) return null;
+        // Playback was not started from a playlist row (a one-shot from the song list, or it
+        // was stopped), so there is nothing to advance to.
+        if (cursor < 0) return null;
         ArrayList<Integer> order = activeOrder();
         int position = order.indexOf(cursor);
         if (position < 0) return ENTRIES.get(order.get(0));
         boolean last = position == order.size() - 1;
-        if (last) {
-            if (mode() == Config.RepeatMode.SEQUENTIAL) return null;
-            return ENTRIES.get(order.get(0));
-        }
-        return ENTRIES.get(order.get(position + 1));
+        if (last && mode() == Config.RepeatMode.SEQUENTIAL) return null;
+        return ENTRIES.get(order.get((position + 1) % order.size()));
+    }
+
+    /**
+     * Keeps {@link SongPlayer#loopSong} in sync with the stored repeat mode. Called once after
+     * the config has been loaded, since the flag is otherwise only written when the mode changes.
+     */
+    public static void syncPlayerState() {
+        Main.SONG_PLAYER.loopSong = mode() == Config.RepeatMode.SINGLE;
     }
 
     @Override
@@ -309,12 +317,11 @@ public class PlaylistManager implements ClientTickEvents.StartLevelTick {
     }
 
     private static void onSongEnded() {
-        // SINGLE is normally handled by SongPlayer#loopSong restarting the song, but if the
-        // song did reach this point (for example after a manual stop of the repeat flag)
-        // restart it here as well instead of advancing the playlist.
+        // The song itself repeats: SongPlayer normally already restarted it through its own
+        // loopSong flag, so only step in when that did not happen.
         if (mode() == Config.RepeatMode.SINGLE) {
             Song song = Main.SONG_PLAYER.song;
-            if (song != null && cursor >= 0) Main.SONG_PLAYER.start(song);
+            if (song != null && !Main.SONG_PLAYER.running) Main.SONG_PLAYER.start(song);
             return;
         }
         Song next = advanceTarget();
