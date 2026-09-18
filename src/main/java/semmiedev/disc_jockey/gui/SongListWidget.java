@@ -13,6 +13,7 @@ import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 import semmiedev.disc_jockey.Main;
+import semmiedev.disc_jockey.PlaylistManager;
 import semmiedev.disc_jockey.Song;
 
 import java.util.Collection;
@@ -20,6 +21,9 @@ import java.util.function.Consumer;
 
 public class SongListWidget extends ObjectSelectionList<SongListWidget.ListEntry> {
     private boolean showRelativePath;
+
+    /** Called after the selection changed through a click, so the screen can clear the other list. */
+    public Runnable onSelectionChanged;
 
     public SongListWidget(Minecraft client, int width, int height, int top, int itemHeight) {
         super(client, width, height, top, itemHeight);
@@ -141,24 +145,43 @@ public class SongListWidget extends ObjectSelectionList<SongListWidget.ListEntry
                 context.fill(x + 1, y + 1, x + entryWidth - 1, y + entryHeight - 1, 0xFF000000);
             }
 
-            drawText(context, song.displayName, x + 23, y + 6, entryWidth - 27, isSelected ? 0xFFFFFFFF : 0xFF808080);
+            drawText(context, song.displayName, x + 36, y + 6, entryWidth - 40, isSelected ? 0xFFFFFFFF : 0xFF808080);
             if (songListWidget.showRelativePath) {
-                drawText(context, song.relativePath, x + 23, y + 18, entryWidth - 27, 0xFF808080);
-            }
-            if (hovered && !isOverFavoriteButton(mouseX, mouseY)) {
-                context.setTooltipForNextFrame(Tooltip.splitTooltip(client,
-                        Component.literal(song.displayName)), mouseX, mouseY);
+                drawText(context, song.relativePath, x + 36, y + 18, entryWidth - 40, 0xFF808080);
             }
 
+            boolean overPlaylistButton = isOverPlaylistButton(mouseX, mouseY);
+            boolean inPlaylist = PlaylistManager.contains(song);
+            if (hovered) {
+                if (overPlaylistButton) {
+                    context.setTooltipForNextFrame(Component.translatable(
+                            Main.MOD_ID + (inPlaylist ? ".screen.playlist.added" : ".screen.playlist.add")), mouseX, mouseY);
+                } else if (!isOverFavoriteButton(mouseX, mouseY)) {
+                    context.setTooltipForNextFrame(Tooltip.splitTooltip(client,
+                            Component.literal(song.displayName)), mouseX, mouseY);
+                }
+            }
+
+            // Playlist button sits to the left of the favourite star: a left pointing triangle
+            // means "move into the playlist panel on the left". It is drawn dimmed once the
+            // song already is in the playlist.
+            int playlistU = inPlaylist ? 0 : (overPlaylistButton ? 13 : 0);
+            int playlistV = inPlaylist ? 24 : 12;
+            context.blit(RenderPipelines.GUI_TEXTURED, ICONS, x + 4, y + 3, (float) playlistU, (float) playlistV, 13, 12, 52, 36);
+
             int u = (favorite ? 26 : 0) + (isOverFavoriteButton(mouseX, mouseY) ? 13 : 0);
-            context.blit(RenderPipelines.GUI_TEXTURED, ICONS, x + 4, y + 3, (float)u, 0.0f, 13, 12, 52, 12);
+            context.blit(RenderPipelines.GUI_TEXTURED, ICONS, x + 17, y + 3, (float)u, 0.0f, 13, 12, 52, 36);
         }
 
         @Override
         public boolean mouseClicked(MouseButtonEvent event, boolean something) {
-            double mouseX = event.x();
-            double mouseY = event.y();
-            if (mouseX > x + 4 && mouseX < x + 17 && mouseY > y + 3 && mouseY < y + 15) {
+            int mouseX = (int) event.x();
+            int mouseY = (int) event.y();
+            if (isOverPlaylistButton(mouseX, mouseY)) {
+                if (!PlaylistManager.contains(song)) PlaylistManager.add(song);
+                return true;
+            }
+            if (isOverFavoriteButton(mouseX, mouseY)) {
                 favorite = !favorite;
                 if (favorite) {
                     Main.config.favorites.add(song.relativePath);
@@ -168,11 +191,16 @@ public class SongListWidget extends ObjectSelectionList<SongListWidget.ListEntry
                 return true;
             }
             songListWidget.setSelected(this);
+            if (songListWidget.onSelectionChanged != null) songListWidget.onSelectionChanged.run();
             return true;
         }
 
-        private boolean isOverFavoriteButton(int mouseX, int mouseY) {
+        private boolean isOverPlaylistButton(int mouseX, int mouseY) {
             return mouseX > x + 4 && mouseX < x + 17 && mouseY > y + 3 && mouseY < y + 15;
+        }
+
+        private boolean isOverFavoriteButton(int mouseX, int mouseY) {
+            return mouseX > x + 17 && mouseX < x + 30 && mouseY > y + 3 && mouseY < y + 15;
         }
     }
 }

@@ -12,11 +12,14 @@ import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FormattedText;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Util;
 import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.NonNull;
 import semmiedev.disc_jockey.*;
+import semmiedev.disc_jockey.gui.PlaylistWidget;
 import semmiedev.disc_jockey.gui.SongListWidget;
 import semmiedev.disc_jockey.gui.SongTimeSliderWidget;
 import semmiedev.disc_jockey.gui.hud.BlocksOverlay;
@@ -55,12 +58,18 @@ public class DiscJockeyScreen extends Screen {
     private StringWidget songTitle;
     private StringWidget songState;
     private CycleButton<Boolean> playPauseButton;
+    private CycleButton<Boolean> shuffleButton;
+    private CycleButton<Config.RepeatMode> repeatButton;
     private SongTimeSliderWidget timeBar;
     private EditBox speedInput;
     private float displayedSpeed;
+    private boolean displayedShuffle;
+    private Config.RepeatMode displayedRepeatMode;
 
     private SongListWidget songListWidget;
+    private PlaylistWidget playlistWidget;
     private Button playButton, previewButton, blocksButton, refreshButton, parentDirectoryButton;
+    private Button previousButton, nextButton;
     private StringWidget directoryLabel;
     private String currentDirectory = "";
     private boolean shouldFilter;
@@ -106,11 +115,17 @@ public class DiscJockeyScreen extends Screen {
 
         playButton = Button.builder(PLAY, _ -> {
             if (Main.SONG_PLAYER.running) {
-                Main.SONG_PLAYER.stop();
+                PlaylistManager.stop();
             } else {
-                SongListWidget.SongEntry entry = songListWidget.getSelectedSongEntry();
-                if (entry != null) {
-                    Main.SONG_PLAYER.start(entry.song);
+                Song selected = getSelectedSong();
+                if (selected != null) {
+                    // Playing a playlist row keeps the playlist context, playing straight from
+                    // the song list plays that one song.
+                    if (playlistWidget.getSelectedEntry() != null) {
+                        PlaylistManager.play(selected);
+                    } else {
+                        PlaylistManager.playOneShot(selected);
+                    }
                 }
             }
         }).bounds(btnStart, btnY, btnW, 20).build();
@@ -120,31 +135,31 @@ public class DiscJockeyScreen extends Screen {
             if (Main.PREVIEWER.running) {
                 Main.PREVIEWER.stop();
             } else {
-                SongListWidget.SongEntry entry = songListWidget.getSelectedSongEntry();
-                if (entry != null) Main.PREVIEWER.start(entry.song);
+                Song selected = getSelectedSong();
+                if (selected != null) Main.PREVIEWER.start(selected);
             }
         }).bounds(btnStart + btnW + gap, btnY, btnW, 20).build();
         addRenderableWidget(previewButton);
 
         blocksButton = Button.builder(Component.translatable(Main.MOD_ID + ".screen.blocks"), _ -> {
-                SongListWidget.SongEntry entry = songListWidget.getSelectedSongEntry();
-                if (entry == null) return;
+                Song selected = getSelectedSong();
+                if (selected == null) return;
 
                 // Same song -> close overlay
                 // different/not shown -> show/update
-                if (BlocksOverlay.itemStacks != null && entry.song.relativePath.equals(BlocksOverlay.songRelativePath)) {
+                if (BlocksOverlay.itemStacks != null && selected.relativePath.equals(BlocksOverlay.songRelativePath)) {
                     BlocksOverlay.itemStacks = null;
                     return;
                 }
 
                 minecraft.gui.setScreen(null);
 
-                BlocksOverlay.songRelativePath = entry.song.relativePath;
-                BlocksOverlay.amountOfNoteBlocks = entry.song.uniqueNotes.size();
+                BlocksOverlay.songRelativePath = selected.relativePath;
+                BlocksOverlay.amountOfNoteBlocks = selected.uniqueNotes.size();
                 BlocksOverlay.itemStacks = new ItemStack[0];
                 BlocksOverlay.amounts = new int[0];
 
-                for (Note note : entry.song.uniqueNotes) {
+                for (Note note : selected.uniqueNotes) {
                     ItemStack itemStack = Note.INSTRUMENT_BLOCKS.get(note.instrument()).asItem().getDefaultInstance();
                     int index = -1;
 
@@ -192,14 +207,27 @@ public class DiscJockeyScreen extends Screen {
         timeBar = new SongTimeSliderWidget(leftX, topY + 40, leftWidth, 25);
         addRenderableWidget(timeBar);
 
-        int controlsY = topY + 40 + 25 + 5;
+        // Control row: previous, play/pause, stop, next, order mode, repeat mode.
+        int controlsY = topY + 78;
+        int transportSize = 20;
+        int modeWidth = 24;
+        int fixedWidth = transportSize * 4 + modeWidth * 2;
+        int controlGap = Math.max(1, Math.min(5, (leftWidth - fixedWidth) / 5));
+        int controlsWidth = fixedWidth + controlGap * 5;
+        int controlX = leftX + Math.max(0, (leftWidth - controlsWidth) / 2);
+
+        previousButton = Button.builder(Component.literal("⏮"), _ -> PlaylistManager.skip(-1))
+                .pos(controlX, controlsY).size(transportSize, transportSize).build();
+        previousButton.setTooltip(Tooltip.create(Component.translatable(Main.MOD_ID + ".screen.previous")));
+        addRenderableWidget(previousButton);
+
         playPauseButton = CycleButton.builder(
                 (value) -> Component.literal(value ? "⏸" : "▶"),
                 Main.SONG_PLAYER.running
             )
             .displayOnlyValue()
             .withValues(true, false)
-            .create((width / 4) - 25, controlsY, 20, 20, Component.empty(), (_, value) -> {
+            .create(controlX + transportSize + controlGap, controlsY, transportSize, transportSize, Component.empty(), (_, value) -> {
                 if (value && Main.SONG_PLAYER.song != null && Main.SONG_PLAYER.didSongReachEnd) {
                     Main.SONG_PLAYER.start(Main.SONG_PLAYER.song);
                 } else {
@@ -208,30 +236,76 @@ public class DiscJockeyScreen extends Screen {
             });
         addRenderableWidget(playPauseButton);
 
-        Button stopButton = Button.builder(Component.literal("⏹"), _ -> Main.SONG_PLAYER.stop())
-                .pos((width / 4) + 5, controlsY)
-                .size(20, 20)
+        Button stopButton = Button.builder(Component.literal("⏹"), _ -> PlaylistManager.stop())
+                .pos(controlX + (transportSize + controlGap) * 2, controlsY)
+                .size(transportSize, transportSize)
                 .build();
         addRenderableWidget(stopButton);
 
+        nextButton = Button.builder(Component.literal("⏭"), _ -> PlaylistManager.skip(1))
+                .pos(controlX + (transportSize + controlGap) * 3, controlsY).size(transportSize, transportSize).build();
+        nextButton.setTooltip(Tooltip.create(Component.translatable(Main.MOD_ID + ".screen.next")));
+        addRenderableWidget(nextButton);
+
+        shuffleButton = CycleButton.builder(
+                (value) -> Component.translatable(Main.MOD_ID + (value ? ".screen.shuffle.on" : ".screen.shuffle.off")),
+                PlaylistManager.shuffle()
+            )
+            .displayOnlyValue()
+            .withValues(true, false)
+            .create(controlX + (transportSize + controlGap) * 4, controlsY, modeWidth, transportSize, Component.empty(),
+                    (_, value) -> PlaylistManager.setShuffle(value));
+        shuffleButton.setTooltip(Tooltip.create(Component.translatable(
+                Main.MOD_ID + (PlaylistManager.shuffle() ? ".screen.shuffle.on.tooltip" : ".screen.shuffle.off.tooltip"))));
+        addRenderableWidget(shuffleButton);
+
+        repeatButton = CycleButton.builder(
+                (value) -> Component.translatable(Main.MOD_ID + ".screen.repeat." + value.name().toLowerCase(Locale.ROOT)),
+                PlaylistManager.mode()
+            )
+            .displayOnlyValue()
+            .withValues(Config.RepeatMode.SEQUENTIAL, Config.RepeatMode.PLAYLIST, Config.RepeatMode.SINGLE)
+            .create(controlX + (transportSize + controlGap) * 4 + modeWidth + controlGap, controlsY, modeWidth, transportSize,
+                    Component.empty(), (_, value) -> PlaylistManager.setMode(value));
+        repeatButton.setTooltip(Tooltip.create(Component.translatable(
+                Main.MOD_ID + ".screen.repeat." + PlaylistManager.mode().name().toLowerCase(Locale.ROOT) + ".tooltip")));
+        addRenderableWidget(repeatButton);
+
+        // Playlist panel, mirroring the vertical extent of the song list on the right.
+        int playlistTop = controlsY + transportSize + 18;
+        int playlistHeight = Math.max(20, (height - 64) - playlistTop);
+        playlistWidget = new PlaylistWidget(minecraft, leftWidth, playlistHeight, playlistTop, 20);
+        playlistWidget.setX(leftX);
+        playlistWidget.onSelectionChanged = () -> {
+            if (playlistWidget.getSelectedEntry() != null) songListWidget.setSelected(null);
+        };
+        addRenderableWidget(playlistWidget);
+        playlistWidget.refresh();
+        songListWidget.onSelectionChanged = () -> {
+            if (songListWidget.getSelectedSongEntry() != null) playlistWidget.setSelected(null);
+        };
+
+        int bottomY = height - 61;
+        int utilityWidth = Math.min(100, (leftWidth - 6) / 2);
         refreshButton = Button.builder(REFRESH_SONGS, _ -> {
             SongLoader.loadSongs();
             updateLoadingState();
-        }).pos(10, height - 80).size(100, 20).build();
+        }).pos(leftX, bottomY).size(utilityWidth, 20).build();
         addRenderableWidget(refreshButton);
         updateLoadingState();
 
         addRenderableWidget(Button.builder(Component.translatable(Main.MOD_ID + ".screen.open_folder"), _ ->
                 Util.getPlatform().openPath(Main.songsFolder.toPath())
-        ).pos(10, height - 55).size(100, 20).build());
+        ).pos(leftX + utilityWidth + 6, bottomY).size(utilityWidth, 20).build());
 
-        int speedY = height - 30;
+        int speedY = height - 31;
         int labelWidth = font.width(PLAYBACK_SPEED);
+        int configWidth = Math.max(50, Math.min(80, leftWidth / 3));
         addRenderableWidget(Button.builder(CONFIG, _ ->
                 minecraft.gui.setScreen(me.shedaniel.autoconfig.AutoConfigClient.getConfigScreen(Config.class, this).get())
-        ).pos(leftX, speedY).size(100, 20).build());
+        ).pos(leftX, speedY).size(configWidth, 20).build());
 
-        int speedX = leftX + 100 + 6;
+        int speedX = leftX + configWidth + 6;
         addRenderableOnly(new StringWidget(speedX, speedY, labelWidth, 20, PLAYBACK_SPEED, font));
         speedInput = new EditBox(font, speedX + labelWidth + 2, speedY, 36, 20, PLAYBACK_SPEED) {
             @Override
@@ -305,7 +379,29 @@ public class DiscJockeyScreen extends Screen {
     @Override
     public void extractBackground(@NonNull GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         super.extractBackground(context, mouseX, mouseY, delta);
-        context.fill(5, 32, width / 2, 32 + 20 + 20 + 30 + 5 + 20 + 5, 0x3F000000);
+        // Playback panel
+        context.fill(5, 32, width / 2, 134, 0x3F000000);
+        // Playlist panel, from below the playback panel down to the song list's bottom edge
+        context.fill(5, 138, width / 2, Math.max(138, height - 64), 0x3F000000);
+    }
+
+    /** Elapsed and total time below the progress bar, both scaled by the playback speed. */
+    private void drawTimestamps(@NonNull GuiGraphicsExtractor context, int leftX, int leftWidth) {
+        if (Main.SONG_PLAYER.song == null) return;
+        float speed = Main.SONG_PLAYER.speed > 0.0001f ? Main.SONG_PLAYER.speed : 1.0f;
+        String elapsed = SongTimeSliderWidget.formatTimestamp((int) (Main.SONG_PLAYER.getSongElapsedSeconds() / speed));
+        String total = SongTimeSliderWidget.formatTimestamp((int) (Main.SONG_PLAYER.song.getLengthInSeconds() / speed));
+        context.text(font, elapsed, leftX, 99, 0xFFAAAAAA);
+        context.text(font, total, leftX + leftWidth - font.width(total), 99, 0xFFAAAAAA);
+    }
+
+    private void drawEmptyPlaylistHint(@NonNull GuiGraphicsExtractor context, int x, int y, int maxWidth) {
+        FormattedText source = Component.translatable(Main.MOD_ID + ".screen.playlist.empty");
+        int lineY = y;
+        for (FormattedCharSequence line : font.split(source, maxWidth)) {
+            context.centeredText(font, line, x + maxWidth / 2, lineY, 0xFF808080);
+            lineY += 10;
+        }
     }
 
     @Override
@@ -318,6 +414,13 @@ public class DiscJockeyScreen extends Screen {
         if (SongLoader.loadingSongs) {
             context.centeredText(font, LOADING_SONGS, rightCenter, 56 + (height - 120) / 2, 0xFFFFFFFF);
         }
+
+        int leftX = 10;
+        int leftWidth = width / 2 - 20;
+        drawTimestamps(context, leftX, leftWidth);
+        context.text(font, Component.translatable(Main.MOD_ID + ".screen.playlist.count", PlaylistManager.size()).getString(),
+                leftX, 138, 0xFFDDDDDD);
+        if (PlaylistManager.isEmpty()) drawEmptyPlaylistHint(context, leftX, playlistWidget.getY() + 8, leftWidth);
     }
 
     private void updateLoadingState() {
@@ -327,12 +430,23 @@ public class DiscJockeyScreen extends Screen {
         songListWidget.visible = !loading;
         songListWidget.active = !loading;
         if (loading) songListWidget.setSelected(null);
-        boolean hasSelection = !loading && songListWidget.getSelectedSongEntry() != null;
+        boolean hasSelection = !loading && getSelectedSong() != null;
         playButton.active = hasSelection || Main.SONG_PLAYER.running;
         previewButton.active = hasSelection || Main.PREVIEWER.running;
         blocksButton.active = hasSelection;
         playPauseButton.active = Main.SONG_PLAYER.song != null;
         parentDirectoryButton.active = !loading && !currentDirectory.isEmpty();
+        boolean hasPlaylist = !PlaylistManager.isEmpty();
+        previousButton.active = hasPlaylist;
+        nextButton.active = hasPlaylist;
+    }
+
+    /** The selected song of either list; the playlist panel counts like the song list. */
+    private Song getSelectedSong() {
+        SongListWidget.SongEntry libraryEntry = songListWidget.getSelectedSongEntry();
+        if (libraryEntry != null) return libraryEntry.song;
+        PlaylistWidget.PlaylistEntry playlistEntry = playlistWidget.getSelectedEntry();
+        return playlistEntry == null ? null : playlistEntry.song;
     }
 
     private void changeDirectory(String directory) {
@@ -388,6 +502,21 @@ public class DiscJockeyScreen extends Screen {
         songState.setMessage(getPlaybackStateText());
         timeBar.update();
         playPauseButton.setValue(Main.SONG_PLAYER.running);
+        // Keep the playlist panel and the mode buttons in sync with the manager, which also
+        // picks up changes made through the client command.
+        if (playlistWidget.children().size() != PlaylistManager.size()) playlistWidget.refresh();
+        if (displayedShuffle != PlaylistManager.shuffle()) {
+            displayedShuffle = PlaylistManager.shuffle();
+            shuffleButton.setValue(displayedShuffle);
+            shuffleButton.setTooltip(Tooltip.create(Component.translatable(
+                    Main.MOD_ID + (displayedShuffle ? ".screen.shuffle.on.tooltip" : ".screen.shuffle.off.tooltip"))));
+        }
+        if (displayedRepeatMode != PlaylistManager.mode()) {
+            displayedRepeatMode = PlaylistManager.mode();
+            repeatButton.setValue(displayedRepeatMode);
+            repeatButton.setTooltip(Tooltip.create(Component.translatable(
+                    Main.MOD_ID + ".screen.repeat." + displayedRepeatMode.name().toLowerCase(Locale.ROOT) + ".tooltip")));
+        }
         songTitle.setMessage(Main.SONG_PLAYER.song != null ? Component.literal(Main.SONG_PLAYER.song.displayName) : PLEASE_SELECT_SONG);
 
         previewButton.setMessage(Main.PREVIEWER.running ? PREVIEW_STOP : PREVIEW);

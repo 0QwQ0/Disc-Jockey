@@ -44,6 +44,7 @@ public class Main implements ClientModInitializer {
     public void onInitializeClient() {
         configHolder = AutoConfig.register(Config.class, JanksonConfigSerializer::new);
         config = configHolder.getConfig();
+        PlaylistManager.syncPlayerState();
 
         songsFolder = new File(FabricLoader.getInstance().getConfigDir() + File.separator + MOD_ID + File.separator + "songs");
         if (!songsFolder.isDirectory()) songsFolder.mkdirs();
