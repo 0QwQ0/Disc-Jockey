@@ -25,7 +25,19 @@ public final class LyricsDispatch {
     /** How long a selector probe may stay unanswered before it counts as accepted. */
     private static final long SELECTOR_PROBE_MILLIS = 3000;
 
-    private static int cursor;
+    /**
+     * How many commands may be sent back to back. Vanilla builds
+     * {@code commandSpamThrottler = new TickThrottler(20, 20 * commandSpamThresholdSeconds)}, so with
+     * the default ten second threshold a non operator is disconnected on the tenth command inside the
+     * window. Staying below that keeps a whole lyric line deliverable in one go.
+     */
+    private static final int COMMAND_BURST = 8;
+    /** Long term command rate vanilla tolerates: one per second. */
+    private static final double COMMANDS_PER_SECOND = 1.0;
+
+    private static double availableCommands = COMMAND_BURST;
+    private static long lastRefillAt = System.currentTimeMillis();
+
     private static boolean selectorRefused;
     private static long selectorProbeAt = -1;
     private static boolean warnedAboutSelector;
@@ -68,9 +80,14 @@ public final class LyricsDispatch {
             return;
         }
 
-        AbstractClientPlayer target = targets.get(Math.floorMod(cursor, targets.size()));
-        cursor++;
-        connection.sendCommand(command + " " + target.getScoreboardName() + " " + message);
+        // Without permission to use selectors vanilla can only address one name per /msg command, so
+        // a line has to be sent once per recipient. That spends a command per player, and vanilla
+        // disconnects players who send more than roughly one command per second (with a small burst),
+        // so a line is either delivered to everybody in range or skipped - never split across players.
+        if (!takeCommands(targets.size())) return;
+        for (AbstractClientPlayer target : targets) {
+            connection.sendCommand(command + " " + target.getScoreboardName() + " " + message);
+        }
     }
 
     /**
@@ -105,6 +122,23 @@ public final class LyricsDispatch {
             client.gui.getChat().addMessage(net.minecraft.network.chat.Component.translatable(
                     Main.MOD_ID + ".lyrics.selector_not_allowed"));
         }
+    }
+
+    /**
+     * Consumes the command budget for one whole lyric line. Returns false when the line cannot be
+     * delivered to every player in range right now, in which case it is skipped rather than being
+     * sent to only some of them.
+     */
+    private static synchronized boolean takeCommands(int commands) {
+        long now = System.currentTimeMillis();
+        double refill = (now - lastRefillAt) / 1000.0 * COMMANDS_PER_SECOND;
+        if (refill > 0) {
+            availableCommands = Math.min(COMMAND_BURST, availableCommands + refill);
+            lastRefillAt = now;
+        }
+        if (commands > COMMAND_BURST || availableCommands < commands) return false;
+        availableCommands -= commands;
+        return true;
     }
 
     /** Number of players that would currently receive private lyrics. */
