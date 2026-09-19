@@ -91,13 +91,15 @@
   "text.autoconfig.disc_jockey.option.packetRateYellowMax": "Packet rate: yellow up to",
   "text.autoconfig.disc_jockey.option.packetRateYellowMax.@Tooltip": "Up to this many packets per second the rate is drawn yellow, above it red. Should not be lower than the green threshold.",
   "disc_jockey.lyrics.selector_not_allowed": "Disc Jockey: this server does not allow target selectors, so each private lyric line is now sent with one command per player.",
-  "disc_jockey.lyrics.dm_warning": "Disc Jockey: %s players are inside the private message radius.\n\nWithout operator permissions Minecraft only lets /msg address one player at a time, so every lyric line costs one command per player, and it disconnects players who send much more than about one command per second.\n\nLines that do not fit that budget are skipped completely instead of reaching only some players, and more than eight players cannot be served at all. Use public chat output instead?",
+  "disc_jockey.lyrics.dm_warning": "Disc Jockey: %s players are inside the private message radius.\n\nWithout operator permissions Minecraft only lets /msg address one player at a time, so every lyric line costs one command per player, and it disconnects players who send much more than about one command per second.\n\nThe number of recipients is limited to the configured private message burst, and lines that do not fit that budget are skipped completely instead of reaching only some players. Lines are also spaced at least %s seconds apart. Raise the burst in the settings to reach more players, or use public chat output instead?",
   "text.autoconfig.disc_jockey.option.lyricsMinIntervalMs": "Lyrics: minimum delay (ms)",
   "text.autoconfig.disc_jockey.option.lyricsMinIntervalMs.@Tooltip": "Minecraft disconnects players who send chat messages or commands faster than roughly once per second, so lyrics are throttled to at least this delay.",
   "text.autoconfig.disc_jockey.option.lyricsDmRadius": "Lyrics: private message radius",
   "text.autoconfig.disc_jockey.option.lyricsDmRadius.@Tooltip": "Players within this many blocks receive the lyrics when public chat output is off. Maximum 40.",
   "text.autoconfig.disc_jockey.option.lyricsDmMaxTargets": "Lyrics: private message target limit",
-  "text.autoconfig.disc_jockey.option.lyricsDmMaxTargets.@Tooltip": "At most this many players are served in private mode, nearest first. Every recipient costs one command, and without operator permissions Minecraft allows only about one command per second with a burst of a few, so a line is skipped when the budget is used up and more than eight recipients cannot be served at all.",
+  "text.autoconfig.disc_jockey.option.lyricsDmMaxTargets.@Tooltip": "At most this many players are served in private mode, nearest first, and never more than the configured private message burst. Every recipient costs one command, and without operator permissions Minecraft allows only about one command per second with a short burst, so a line is skipped when the budget is used up.",
+  "text.autoconfig.disc_jockey.option.lyricsDmBurst": "Lyrics: private message burst",
+  "text.autoconfig.disc_jockey.option.lyricsDmBurst.@Tooltip": "How many private message commands may be sent back to back for one lyric line. Minecraft kicks a player without operator permissions who sends ten commands inside its spam window, so nine is the absolute maximum. The default of eight assumes the stock server setting of ten seconds (command-spam-threshold-seconds); on a stricter server, lower it.",
   "text.autoconfig.disc_jockey.option.lyricsCommand": "Lyrics: private message command",
   "text.autoconfig.disc_jockey.option.lyricsCommand.@Tooltip": "Command used for private lyrics. Some servers disable or rename /msg.",
   "text.autoconfig.disc_jockey.option.lyricsUseSelector": "Lyrics: use target selectors",
@@ -111,5 +113,9 @@
   "disc_jockey.screen.lyrics.public.tooltip": "Checked: lyrics go to public chat. Unchecked: they are only sent to the players near you.",
   "disc_jockey.screen.lyrics.warning": "Send lyrics in private?",
   "disc_jockey.screen.lyrics.targets": "%s nearby",
-  "disc_jockey.screen.lyrics.empty": "No lyrics at this point"
+  "disc_jockey.screen.lyrics.empty": "No lyrics at this point",
+  "disc_jockey.screen.lyrics.offset.earlier.tooltip": "Show the lyrics half a second earlier and shift every timestamp in the .lrc file by the same amount, so the change is kept.",
+  "disc_jockey.screen.lyrics.offset.later.tooltip": "Show the lyrics half a second later and shift every timestamp in the .lrc file by the same amount, so the change is kept.",
+  "disc_jockey.screen.lyrics.offset.failed": "Lyrics file not updated",
+  "disc_jockey.screen.lyrics.offset.failed.message": "Disc Jockey could not rewrite %s, so the lyrics on disk are unchanged. See the log for details."
 }

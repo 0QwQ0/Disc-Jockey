@@ -96,6 +96,16 @@ public class Config implements ConfigData {
     @ConfigEntry.Gui.Tooltip()
     public int lyricsDmMaxTargets = 5;
 
+    /**
+     * How many private message commands may be sent back to back for one lyric line. Vanilla
+     * throttles commands with {@code new TickThrottler(20, 20 * commandSpamThresholdSeconds)} and
+     * disconnects a non operator on the tenth command inside that window, so nine is the highest
+     * value the server still accepts.
+     */
+    @ConfigEntry.BoundedDiscrete(min = 1, max = 9)
+    @ConfigEntry.Gui.Tooltip()
+    public int lyricsDmBurst = 8;
+
     /** Command used for private lyrics; some servers disable or rename /msg. */
     @ConfigEntry.Gui.Tooltip()
     public String lyricsCommand = "msg";
