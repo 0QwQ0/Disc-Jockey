@@ -3,6 +3,7 @@ package semmiedev.disc_jockey.gui.screen;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
@@ -68,6 +69,9 @@ public class DiscJockeyScreen extends Screen {
 
     private SongListWidget songListWidget;
     private PlaylistWidget playlistWidget;
+    private Checkbox lyricsCheckbox, lyricsPublicCheckbox;
+    private int lyricsRowY;
+    private boolean showLyricsPreview;
     private Button playButton, previewButton, blocksButton, refreshButton, parentDirectoryButton;
     private Button previousButton, nextButton;
     private StringWidget directoryLabel;
@@ -271,9 +275,37 @@ public class DiscJockeyScreen extends Screen {
                 Main.MOD_ID + ".screen.repeat." + PlaylistManager.mode().name().toLowerCase(Locale.ROOT) + ".tooltip")));
         addRenderableWidget(repeatButton);
 
+        // Lyrics switches: the master switch and whether the output goes to public chat.
+        lyricsRowY = controlsY + transportSize + 2;
+        lyricsCheckbox = Checkbox.builder(Component.translatable(Main.MOD_ID + ".screen.lyrics"), font)
+                .pos(leftX, lyricsRowY)
+                .selected(Main.config.lyricsChatOutput)
+                .tooltip(Tooltip.create(Component.translatable(Main.MOD_ID + ".screen.lyrics.tooltip")))
+                .onValueChange((_, value) -> {
+                    Main.config.lyricsChatOutput = value;
+                    Main.configHolder.save();
+                })
+                .build();
+        addRenderableWidget(lyricsCheckbox);
+
+        int publicCheckboxX = leftX + Checkbox.getBoxSize(font) + 4
+                + font.width(Component.translatable(Main.MOD_ID + ".screen.lyrics")) + 10;
+        lyricsPublicCheckbox = Checkbox.builder(Component.translatable(Main.MOD_ID + ".screen.lyrics.public"), font)
+                .pos(publicCheckboxX, lyricsRowY)
+                .selected(Main.config.lyricsOutputToPublic)
+                .tooltip(Tooltip.create(Component.translatable(Main.MOD_ID + ".screen.lyrics.public.tooltip")))
+                .onValueChange((_, value) -> onLyricsOutputChanged(value))
+                .build();
+        addRenderableWidget(lyricsPublicCheckbox);
+
+        // Below a certain height the left column cannot fit three bottom rows plus the playlist, so
+        // the lyrics preview is dropped there and the layout stays as it was before.
+        showLyricsPreview = height >= 300;
+
         // Playlist panel, mirroring the vertical extent of the song list on the right.
-        int playlistTop = controlsY + transportSize + 18;
-        int playlistHeight = Math.max(20, (height - 64) - playlistTop);
+        int playlistBottom = showLyricsPreview ? height - 94 : height - 64;
+        int playlistTop = lyricsRowY + 34;
+        int playlistHeight = Math.max(20, playlistBottom - playlistTop);
         playlistWidget = new PlaylistWidget(minecraft, leftWidth, playlistHeight, playlistTop, 20);
         playlistWidget.setX(leftX);
         playlistWidget.onSelectionChanged = () -> {
@@ -285,7 +317,7 @@ public class DiscJockeyScreen extends Screen {
             if (songListWidget.getSelectedSongEntry() != null) playlistWidget.setSelected(null);
         };
 
-        int bottomY = height - 61;
+        int bottomY = showLyricsPreview ? height - 88 : height - 61;
         int utilityWidth = Math.min(100, (leftWidth - 6) / 2);
         refreshButton = Button.builder(REFRESH_SONGS, _ -> {
             SongLoader.loadSongs();
@@ -298,7 +330,7 @@ public class DiscJockeyScreen extends Screen {
                 Util.getPlatform().openPath(Main.songsFolder.toPath())
         ).pos(leftX + utilityWidth + 6, bottomY).size(utilityWidth, 20).build());
 
-        int speedY = height - 31;
+        int speedY = showLyricsPreview ? height - 62 : height - 31;
         int labelWidth = font.width(PLAYBACK_SPEED);
         int configWidth = Math.max(50, Math.min(80, leftWidth / 3));
         addRenderableWidget(Button.builder(CONFIG, _ ->
@@ -318,6 +350,32 @@ public class DiscJockeyScreen extends Screen {
         updatePlaybackSpeedInput();
         addRenderableWidget(speedInput);
         addRenderableOnly(new StringWidget(speedInput.getX() + speedInput.getWidth() + 2, speedY, font.width("x"), 20, Component.literal("x"), font));
+    }
+
+    /**
+     * Switching the lyrics away from public chat can flood the server with private messages, so the
+     * user is asked to confirm first when there are a lot of players in range.
+     */
+    private void onLyricsOutputChanged(boolean publicChat) {
+        if (publicChat) {
+            Main.config.lyricsOutputToPublic = true;
+            Main.configHolder.save();
+            return;
+        }
+        int targets = LyricsDispatch.targetCount();
+        if (targets <= LyricsDispatch.WARN_TARGET_COUNT) {
+            Main.config.lyricsOutputToPublic = false;
+            Main.configHolder.save();
+            return;
+        }
+        // Leave the checkbox checked until the user confirms, so cancelling keeps public chat.
+        minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
+            if (confirmed) {
+                Main.config.lyricsOutputToPublic = false;
+                Main.configHolder.save();
+            }
+            minecraft.gui.setScreen(this);
+        }, Component.translatable(Main.MOD_ID + ".screen.lyrics.warning"), LyricsChat.warningText(targets, Main.config.lyricsMinIntervalMs)));
     }
 
     private void applyPlaybackSpeed() {
@@ -379,10 +437,12 @@ public class DiscJockeyScreen extends Screen {
     @Override
     public void extractBackground(@NonNull GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         super.extractBackground(context, mouseX, mouseY, delta);
-        // Playback panel
-        context.fill(5, 32, width / 2, 134, 0x3F000000);
-        // Playlist panel, from below the playback panel down to the song list's bottom edge
-        context.fill(5, 138, width / 2, Math.max(138, height - 64), 0x3F000000);
+        // Playback panel, including the lyrics switches below the control row.
+        context.fill(5, 32, width / 2, lyricsRowY + 22, 0x3F000000);
+        // Playlist panel, from below the playback panel down to the song list's bottom edge.
+        int panelBottom = Math.max(lyricsRowY + 26, playlistWidget.getY() + playlistWidget.getHeight() + 4);
+        context.fill(5, lyricsRowY + 22, width / 2, panelBottom, 0x3F000000);
+        if (showLyricsPreview) context.fill(5, height - 46, width / 2, height - 18, 0x3F000000);
     }
 
     /** Elapsed and total time below the progress bar, both scaled by the playback speed. */
@@ -419,12 +479,35 @@ public class DiscJockeyScreen extends Screen {
         int leftWidth = width / 2 - 20;
         drawTimestamps(context, leftX, leftWidth);
         context.text(font, Component.translatable(Main.MOD_ID + ".screen.playlist.count", PlaylistManager.size()).getString(),
-                leftX, 138, 0xFFDDDDDD);
+                leftX, playlistWidget.getY() - 10, 0xFFDDDDDD);
         if (PlaylistManager.isEmpty()) drawEmptyPlaylistHint(context, leftX, playlistWidget.getY() + 8, leftWidth);
 
         // Top right corner of the playback panel: how fast the mod is currently hitting the server.
         String packetRate = PacketRateMeter.text();
         context.text(font, packetRate, width / 2 - 12 - font.width(packetRate), 34, PacketRateMeter.color());
+
+        // Right of the lyrics switches: how many players private lyrics would reach right now.
+        if (!Main.config.lyricsOutputToPublic && Main.config.lyricsChatOutput) {
+            int targets = LyricsDispatch.targetCount();
+            String info = Component.translatable(Main.MOD_ID + ".screen.lyrics.targets", targets).getString();
+            if (font.width(info) < leftWidth / 2) {
+                context.text(font, info, width / 2 - 12 - font.width(info), lyricsRowY + 6, 0xFFAAAAAA);
+            }
+        }
+
+        // Lyrics preview, only while the playing song has a paired lyric file.
+        if (showLyricsPreview && LyricsPlayer.hasLyrics()) {
+            List<Lyrics.Line> lines = LyricsPlayer.previewLines();
+            if (lines.isEmpty()) {
+                context.centeredText(font, Component.translatable(Main.MOD_ID + ".screen.lyrics.empty"),
+                        leftX + leftWidth / 2, height - 36, 0xFF808080);
+            } else {
+                context.text(font, font.plainSubstrByWidth(lines.get(0).text(), leftWidth - 8), leftX + 4, height - 42, 0xFFFFFFFF);
+                if (lines.size() > 1) {
+                    context.text(font, font.plainSubstrByWidth(lines.get(1).text(), leftWidth - 8), leftX + 4, height - 30, 0xFF909090);
+                }
+            }
+        }
     }
 
     private void updateLoadingState() {
@@ -563,10 +646,17 @@ public class DiscJockeyScreen extends Screen {
 
         minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
             if (confirmed) {
-                files.forEach(path -> {
+                boolean lyricsImported = false;
+                for (Path path : files) {
                     Path target = targetDirectory.resolve(path.getFileName());
                     try {
                         if (Files.exists(target)) throw new FileAlreadyExistsException(target.toString());
+                        if (path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(SongLoader.LYRICS_EXTENSION)) {
+                            // Lyrics are not songs: just copy them, the rescan below pairs them up.
+                            Files.copy(path, target);
+                            lyricsImported = true;
+                            continue;
+                        }
                         Song song = SongLoader.loadSong(path.toFile(), SongLoader.relativePath(target));
                         if (song != null) {
                             Files.copy(path, target);
@@ -577,9 +667,10 @@ public class DiscJockeyScreen extends Screen {
                         SystemToast.add(minecraft.gui.toastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME,
                                 Component.translatable(Main.MOD_ID + ".screen.import_failed", SongLoader.relativePath(target)));
                     }
-                });
+                }
 
                 SongLoader.sort();
+                if (lyricsImported) SongLoader.loadSongs();
             }
             minecraft.gui.setScreen(this);
         }, Component.translatable(Main.MOD_ID + ".screen.drop_confirm", currentDirectory.isEmpty() ? "/" : currentDirectory + "/"), Component.literal(string)));
