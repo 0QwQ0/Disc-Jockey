@@ -72,4 +72,35 @@ public class Config implements ConfigData {
     @ConfigEntry.BoundedDiscrete(min = 0, max = 5000)
     @ConfigEntry.Gui.Tooltip()
     public int packetRateYellowMax = 500;
+
+    /** Master switch for pushing the lyrics of the playing song into chat. */
+    @ConfigEntry.Gui.Excluded
+    public boolean lyricsChatOutput = false;
+
+    /** true = public chat, false = private messages to the players standing nearby. */
+    @ConfigEntry.Gui.Excluded
+    public boolean lyricsOutputToPublic = true;
+
+    /** Minimum delay between two lyric messages, in milliseconds. */
+    @ConfigEntry.BoundedDiscrete(min = 100, max = 5000)
+    @ConfigEntry.Gui.Tooltip()
+    public int lyricsMinIntervalMs = 1000;
+
+    /** Radius in blocks used to find the players that receive private lyrics. */
+    @ConfigEntry.BoundedDiscrete(min = 1, max = 40)
+    @ConfigEntry.Gui.Tooltip()
+    public int lyricsDmRadius = 20;
+
+    /** Upper bound on how many players receive private lyrics, nearest first. */
+    @ConfigEntry.BoundedDiscrete(min = 1, max = 40)
+    @ConfigEntry.Gui.Tooltip()
+    public int lyricsDmMaxTargets = 5;
+
+    /** Command used for private lyrics; some servers disable or rename /msg. */
+    @ConfigEntry.Gui.Tooltip()
+    public String lyricsCommand = "msg";
+
+    @ConfigEntry.Gui.EnumHandler(option = ConfigEntry.Gui.EnumHandler.EnumDisplayOption.BUTTON)
+    @ConfigEntry.Gui.Tooltip(count = 3)
+    public LyricsDispatch.Mode lyricsDispatch = LyricsDispatch.Mode.AUTO;
 }
