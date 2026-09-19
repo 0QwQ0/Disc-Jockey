@@ -532,12 +532,11 @@ public class DiscJockeyScreen extends Screen {
         context.text(font, packetRate, width / 2 - 12 - font.width(packetRate), 34, PacketRateMeter.color());
 
         // Right end of the control row: how many players private lyrics would reach right now.
-        if (inlineLyricsRow) {
-            int targets = LyricsDispatch.targetCount();
-            String info = Component.translatable(Main.MOD_ID + ".screen.lyrics.targets", targets).getString();
-            context.text(font, info, leftX + leftWidth - font.width(info), lyricsRowY + 6,
-                    targets > 0 ? 0xFF55FF55 : 0xFF808080);
-        }
+        // Green while somebody is in range, grey at zero.
+        int targets = LyricsDispatch.targetCount();
+        String targetText = Component.translatable(Main.MOD_ID + ".screen.lyrics.targets", targets).getString();
+        context.text(font, targetText, leftX + leftWidth - font.width(targetText), lyricsRowY + 6,
+                targets > 0 ? 0xFF55FF55 : 0xFF808080);
 
         // Lyrics preview, only while the playing song has a paired lyric file.
         if (showLyricsPreview && LyricsPlayer.hasLyrics()) {
