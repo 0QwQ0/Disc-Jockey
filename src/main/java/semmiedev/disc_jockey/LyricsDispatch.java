@@ -56,6 +56,30 @@ public final class LyricsDispatch {
 
     /** Players inside the configured radius, nearest first, capped at the configured maximum. */
     public static List<AbstractClientPlayer> nearbyPlayers() {
+        List<AbstractClientPlayer> result = playersInRadiusList();
+        if (result.isEmpty()) return result;
+
+        Minecraft client = Minecraft.getInstance();
+        result.sort(Comparator.comparingDouble(client.player::distanceToSqr));
+
+        // A line is only sent when it fits the command budget as a whole, so a target limit above
+        // the burst would make every line too expensive and silently stop all delivery. The
+        // effective number of recipients is clamped to the burst instead.
+        int maximum = Math.max(1, Math.min(40, Math.min(Main.config.lyricsDmMaxTargets, commandBurst())));
+        return result.size() > maximum ? new ArrayList<>(result.subList(0, maximum)) : result;
+    }
+
+    /**
+     * How many players are inside the configured radius, before the recipients are capped to the
+     * burst. The cap can only ever be nine players, so a warning that has to count the players
+     * around the user has to ask for this number instead of {@link #targetCount()}.
+     */
+    public static int playersInRadius() {
+        return playersInRadiusList().size();
+    }
+
+    /** Players inside the configured radius, in the order the level reports them. */
+    private static List<AbstractClientPlayer> playersInRadiusList() {
         Minecraft client = Minecraft.getInstance();
         List<AbstractClientPlayer> result = new ArrayList<>();
         if (client.player == null || client.level == null) return result;
@@ -66,13 +90,7 @@ public final class LyricsDispatch {
             if (other == client.player) continue;
             if (client.player.distanceToSqr(other) <= radiusSquared) result.add(other);
         }
-        result.sort(Comparator.comparingDouble(client.player::distanceToSqr));
-
-        // A line is only sent when it fits the command budget as a whole, so a target limit above
-        // the burst would make every line too expensive and silently stop all delivery. The
-        // effective number of recipients is clamped to the burst instead.
-        int maximum = Math.max(1, Math.min(40, Math.min(Main.config.lyricsDmMaxTargets, commandBurst())));
-        return result.size() > maximum ? new ArrayList<>(result.subList(0, maximum)) : result;
+        return result;
     }
 
     public static void send(ClientPacketListener connection, String message) {
