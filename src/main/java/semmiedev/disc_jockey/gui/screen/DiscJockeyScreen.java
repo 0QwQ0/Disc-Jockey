@@ -51,9 +51,13 @@ public class DiscJockeyScreen extends Screen {
             SONG_STATE_STOPPED = Component.translatable(Main.MOD_ID + ".screen.songstate.stopped").withStyle(style -> style.withItalic(true).withColor(0xDDDDDD)),
             SONG_STATE_TUNING = Component.translatable(Main.MOD_ID + ".screen.songstate.tuning").withStyle(style -> style.withItalic(true).withColor(0xDDDDDD)),
             PLEASE_SELECT_SONG = Component.translatable(Main.MOD_ID + ".screen.please_select_song").withStyle(style -> style.withItalic(true)),
-            CONFIG = Component.translatable(Main.MOD_ID + ".screen.config")
+            CONFIG = Component.translatable(Main.MOD_ID + ".screen.config"),
+            REFRESH_SHORT = Component.translatable(Main.MOD_ID + ".screen.refresh_short"),
+            FOLDER_SHORT = Component.translatable(Main.MOD_ID + ".screen.folder_short")
     ;
     private static final Component PLAYBACK_SPEED = Component.translatable(Main.MOD_ID + ".screen.playback_speed");
+    /** Height of the two line lyrics preview strip. */
+    private static final int LYRICS_PREVIEW_HEIGHT = 24;
     private static final SystemToast.SystemToastId INVALID_SPEED_TOAST = new SystemToast.SystemToastId();
 
     private StringWidget songTitle;
@@ -71,7 +75,10 @@ public class DiscJockeyScreen extends Screen {
     private PlaylistWidget playlistWidget;
     private Checkbox lyricsCheckbox, lyricsPublicCheckbox;
     private int lyricsRowY;
+    private int lyricsPreviewTop;
+    private boolean inlineLyricsRow;
     private boolean showLyricsPreview;
+    private Component refreshIdleLabel = REFRESH_SONGS;
     private Button playButton, previewButton, blocksButton, refreshButton, parentDirectoryButton;
     private Button previousButton, nextButton;
     private StringWidget directoryLabel;
@@ -187,8 +194,13 @@ public class DiscJockeyScreen extends Screen {
         }).bounds(btnStart + (btnW + gap) * 2, btnY, btnW, 20).build();
         addRenderableWidget(blocksButton);
 
-        int searchW = Math.min(150, width / 2 - 30);
-        EditBox searchBar = new EditBox(font, rightCenter - searchW / 2, height - 31, searchW, 20, Component.translatable(Main.MOD_ID + ".screen.search"));
+        // Labelled search field, so it is obvious what the box in the corner does.
+        Component searchLabel = Component.translatable(Main.MOD_ID + ".screen.search");
+        int searchLabelWidth = font.width(searchLabel);
+        int searchLabelX = width / 2 + 4;
+        addRenderableOnly(new StringWidget(searchLabelX, height - 31, searchLabelWidth, 20, searchLabel, font));
+        int searchW = Math.max(60, Math.min(150, width / 2 - 30 - searchLabelWidth - 8));
+        EditBox searchBar = new EditBox(font, searchLabelX + searchLabelWidth + 4, height - 31, searchW, 20, searchLabel);
         searchBar.setValue(query);
         searchBar.setResponder(query -> {
             if (this.query.equals(query)) return;
@@ -211,14 +223,30 @@ public class DiscJockeyScreen extends Screen {
         timeBar = new SongTimeSliderWidget(leftX, topY + 40, leftWidth, 25);
         addRenderableWidget(timeBar);
 
-        // Control row: previous, play/pause, stop, next, order mode, repeat mode.
+        // Control row: lyrics switches on the left, transport plus modes in the middle and the
+        // private message target count on the right. When the panel is too narrow for all of that
+        // the switches drop to their own row underneath.
         int controlsY = topY + 78;
-        int transportSize = 20;
-        int modeWidth = 24;
+        int transportSize = leftWidth >= 210 ? 20 : 18;
+        int modeWidth = leftWidth >= 210 ? 24 : 20;
+        int controlGap = 4;
         int fixedWidth = transportSize * 4 + modeWidth * 2;
-        int controlGap = Math.max(1, Math.min(5, (leftWidth - fixedWidth) / 5));
         int controlsWidth = fixedWidth + controlGap * 5;
-        int controlX = leftX + Math.max(0, (leftWidth - controlsWidth) / 2);
+
+        Component lyricsLabel = Component.translatable(Main.MOD_ID + ".screen.lyrics");
+        Component publicLabel = Component.translatable(Main.MOD_ID + ".screen.lyrics.public");
+        int boxSize = Checkbox.getBoxSize(font);
+        int lyricsBoxWidth = boxSize + 4 + font.width(lyricsLabel);
+        int publicBoxWidth = boxSize + 4 + font.width(publicLabel);
+        int switchesWidth = lyricsBoxWidth + 8 + publicBoxWidth;
+        int targetSlotWidth = font.width(Component.translatable(Main.MOD_ID + ".screen.lyrics.targets", 99));
+
+        inlineLyricsRow = switchesWidth + controlsWidth + targetSlotWidth + controlGap * 2 <= leftWidth;
+        lyricsRowY = inlineLyricsRow ? controlsY : controlsY + transportSize + 2;
+        int controlX = inlineLyricsRow
+                ? leftX + switchesWidth + controlGap
+                    + Math.max(0, (leftWidth - switchesWidth - targetSlotWidth - controlsWidth - controlGap * 2) / 2)
+                : leftX + Math.max(0, (leftWidth - controlsWidth) / 2);
 
         previousButton = Button.builder(Component.literal("⏮"), _ -> PlaylistManager.skip(-1))
                 .pos(controlX, controlsY).size(transportSize, transportSize).build();
@@ -275,9 +303,8 @@ public class DiscJockeyScreen extends Screen {
                 Main.MOD_ID + ".screen.repeat." + PlaylistManager.mode().name().toLowerCase(Locale.ROOT) + ".tooltip")));
         addRenderableWidget(repeatButton);
 
-        // Lyrics switches: the master switch and whether the output goes to public chat.
-        lyricsRowY = controlsY + transportSize + 2;
-        lyricsCheckbox = Checkbox.builder(Component.translatable(Main.MOD_ID + ".screen.lyrics"), font)
+        // Lyrics switches, on the left of the control row whenever there is room for them.
+        lyricsCheckbox = Checkbox.builder(lyricsLabel, font)
                 .pos(leftX, lyricsRowY)
                 .selected(Main.config.lyricsChatOutput)
                 .tooltip(Tooltip.create(Component.translatable(Main.MOD_ID + ".screen.lyrics.tooltip")))
@@ -288,24 +315,24 @@ public class DiscJockeyScreen extends Screen {
                 .build();
         addRenderableWidget(lyricsCheckbox);
 
-        int publicCheckboxX = leftX + Checkbox.getBoxSize(font) + 4
-                + font.width(Component.translatable(Main.MOD_ID + ".screen.lyrics")) + 10;
-        lyricsPublicCheckbox = Checkbox.builder(Component.translatable(Main.MOD_ID + ".screen.lyrics.public"), font)
-                .pos(publicCheckboxX, lyricsRowY)
+        lyricsPublicCheckbox = Checkbox.builder(publicLabel, font)
+                .pos(leftX + lyricsBoxWidth + 8, lyricsRowY)
                 .selected(Main.config.lyricsOutputToPublic)
                 .tooltip(Tooltip.create(Component.translatable(Main.MOD_ID + ".screen.lyrics.public.tooltip")))
                 .onValueChange((_, value) -> onLyricsOutputChanged(value))
                 .build();
         addRenderableWidget(lyricsPublicCheckbox);
 
-        // Below a certain height the left column cannot fit three bottom rows plus the playlist, so
-        // the lyrics preview is dropped there and the layout stays as it was before.
-        showLyricsPreview = height >= 300;
+        // The lyrics preview sits between the playback panel and the playlist panel. The playlist
+        // header text needs ten pixels above the list, which the offsets below leave free.
+        lyricsPreviewTop = lyricsRowY + transportSize + 6;
+        int previewPlaylistTop = lyricsPreviewTop + LYRICS_PREVIEW_HEIGHT + 20;
+        int plainPlaylistTop = lyricsRowY + transportSize + 20;
+        showLyricsPreview = (height - 64) - previewPlaylistTop >= 36;
+        int playlistTop = showLyricsPreview ? previewPlaylistTop : plainPlaylistTop;
 
         // Playlist panel, mirroring the vertical extent of the song list on the right.
-        int playlistBottom = showLyricsPreview ? height - 94 : height - 64;
-        int playlistTop = lyricsRowY + 34;
-        int playlistHeight = Math.max(20, playlistBottom - playlistTop);
+        int playlistHeight = Math.max(20, (height - 64) - playlistTop);
         playlistWidget = new PlaylistWidget(minecraft, leftWidth, playlistHeight, playlistTop, 20);
         playlistWidget.setX(leftX);
         playlistWidget.onSelectionChanged = () -> {
@@ -317,29 +344,44 @@ public class DiscJockeyScreen extends Screen {
             if (songListWidget.getSelectedSongEntry() != null) playlistWidget.setSelected(null);
         };
 
-        int bottomY = showLyricsPreview ? height - 88 : height - 61;
-        int utilityWidth = Math.min(100, (leftWidth - 6) / 2);
-        refreshButton = Button.builder(REFRESH_SONGS, _ -> {
+        // A single bottom row: both utility buttons, the config button and the speed setting, as
+        // wide together as the playlist panel above them.
+        int bottomY = height - 31;
+        int rowGap = 4;
+        int speedInputWidth = 34;
+        int xWidth = font.width("x");
+        int labelWidth = font.width(PLAYBACK_SPEED);
+        int rowFixedWidth = labelWidth + 2 + speedInputWidth + 2 + xWidth + rowGap * 5;
+        int utilityWidth = Math.max(24, (leftWidth - rowFixedWidth) / 3);
+        boolean fullLabels = utilityWidth >= font.width(REFRESH_SONGS);
+        refreshIdleLabel = fullLabels ? REFRESH_SONGS : REFRESH_SHORT;
+
+        int cursor = leftX;
+        refreshButton = Button.builder(refreshIdleLabel, _ -> {
             SongLoader.loadSongs();
             updateLoadingState();
-        }).pos(leftX, bottomY).size(utilityWidth, 20).build();
+        }).pos(cursor, bottomY).size(utilityWidth, 20).build();
+        if (!fullLabels) refreshButton.setTooltip(Tooltip.create(REFRESH_SONGS));
         addRenderableWidget(refreshButton);
         updateLoadingState();
+        cursor += utilityWidth + rowGap;
 
-        addRenderableWidget(Button.builder(Component.translatable(Main.MOD_ID + ".screen.open_folder"), _ ->
+        Button folderButton = Button.builder(
+                fullLabels ? Component.translatable(Main.MOD_ID + ".screen.open_folder") : FOLDER_SHORT, _ ->
                 Util.getPlatform().openPath(Main.songsFolder.toPath())
-        ).pos(leftX + utilityWidth + 6, bottomY).size(utilityWidth, 20).build());
+        ).pos(cursor, bottomY).size(utilityWidth, 20).build();
+        folderButton.setTooltip(Tooltip.create(Component.translatable(Main.MOD_ID + ".screen.open_folder")));
+        addRenderableWidget(folderButton);
+        cursor += utilityWidth + rowGap;
 
-        int speedY = showLyricsPreview ? height - 62 : height - 31;
-        int labelWidth = font.width(PLAYBACK_SPEED);
-        int configWidth = Math.max(50, Math.min(80, leftWidth / 3));
         addRenderableWidget(Button.builder(CONFIG, _ ->
                 minecraft.gui.setScreen(me.shedaniel.autoconfig.AutoConfigClient.getConfigScreen(Config.class, this).get())
-        ).pos(leftX, speedY).size(configWidth, 20).build());
+        ).pos(cursor, bottomY).size(utilityWidth, 20).build());
+        cursor += utilityWidth + rowGap;
 
-        int speedX = leftX + configWidth + 6;
-        addRenderableOnly(new StringWidget(speedX, speedY, labelWidth, 20, PLAYBACK_SPEED, font));
-        speedInput = new EditBox(font, speedX + labelWidth + 2, speedY, 36, 20, PLAYBACK_SPEED) {
+        addRenderableOnly(new StringWidget(cursor, bottomY, labelWidth, 20, PLAYBACK_SPEED, font));
+        cursor += labelWidth + 2;
+        speedInput = new EditBox(font, cursor, bottomY, speedInputWidth, 20, PLAYBACK_SPEED) {
             @Override
             public void setFocused(boolean focused) {
                 boolean lostFocus = isFocused() && !focused;
@@ -349,7 +391,7 @@ public class DiscJockeyScreen extends Screen {
         };
         updatePlaybackSpeedInput();
         addRenderableWidget(speedInput);
-        addRenderableOnly(new StringWidget(speedInput.getX() + speedInput.getWidth() + 2, speedY, font.width("x"), 20, Component.literal("x"), font));
+        addRenderableOnly(new StringWidget(cursor + speedInputWidth + 2, bottomY, xWidth, 20, Component.literal("x"), font));
     }
 
     /**
@@ -437,12 +479,15 @@ public class DiscJockeyScreen extends Screen {
     @Override
     public void extractBackground(@NonNull GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         super.extractBackground(context, mouseX, mouseY, delta);
-        // Playback panel, including the lyrics switches below the control row.
+        // Playback panel, including the control row with the lyrics switches.
         context.fill(5, 32, width / 2, lyricsRowY + 22, 0x3F000000);
-        // Playlist panel, from below the playback panel down to the song list's bottom edge.
-        int panelBottom = Math.max(lyricsRowY + 26, playlistWidget.getY() + playlistWidget.getHeight() + 4);
-        context.fill(5, lyricsRowY + 22, width / 2, panelBottom, 0x3F000000);
-        if (showLyricsPreview) context.fill(5, height - 46, width / 2, height - 18, 0x3F000000);
+        // Lyrics preview, between the playback panel and the playlist panel.
+        if (showLyricsPreview) {
+            context.fill(5, lyricsPreviewTop, width / 2, lyricsPreviewTop + LYRICS_PREVIEW_HEIGHT, 0x3F000000);
+        }
+        // Playlist panel, from below the preview down to the song list's bottom edge.
+        int panelTop = showLyricsPreview ? lyricsPreviewTop + LYRICS_PREVIEW_HEIGHT + 4 : lyricsRowY + 24;
+        context.fill(5, panelTop, width / 2, Math.max(panelTop, height - 60), 0x3F000000);
     }
 
     /** Elapsed and total time below the progress bar, both scaled by the playback speed. */
@@ -486,13 +531,12 @@ public class DiscJockeyScreen extends Screen {
         String packetRate = PacketRateMeter.text();
         context.text(font, packetRate, width / 2 - 12 - font.width(packetRate), 34, PacketRateMeter.color());
 
-        // Right of the lyrics switches: how many players private lyrics would reach right now.
-        if (!Main.config.lyricsOutputToPublic && Main.config.lyricsChatOutput) {
+        // Right end of the control row: how many players private lyrics would reach right now.
+        if (inlineLyricsRow) {
             int targets = LyricsDispatch.targetCount();
             String info = Component.translatable(Main.MOD_ID + ".screen.lyrics.targets", targets).getString();
-            if (font.width(info) < leftWidth / 2) {
-                context.text(font, info, width / 2 - 12 - font.width(info), lyricsRowY + 6, 0xFFAAAAAA);
-            }
+            context.text(font, info, leftX + leftWidth - font.width(info), lyricsRowY + 6,
+                    targets > 0 ? 0xFF55FF55 : 0xFF808080);
         }
 
         // Lyrics preview, only while the playing song has a paired lyric file.
@@ -500,11 +544,11 @@ public class DiscJockeyScreen extends Screen {
             List<Lyrics.Line> lines = LyricsPlayer.previewLines();
             if (lines.isEmpty()) {
                 context.centeredText(font, Component.translatable(Main.MOD_ID + ".screen.lyrics.empty"),
-                        leftX + leftWidth / 2, height - 36, 0xFF808080);
+                        leftX + leftWidth / 2, lyricsPreviewTop + 8, 0xFF808080);
             } else {
-                context.text(font, font.plainSubstrByWidth(lines.get(0).text(), leftWidth - 8), leftX + 4, height - 42, 0xFFFFFFFF);
+                context.text(font, font.plainSubstrByWidth(lines.get(0).text(), leftWidth - 8), leftX + 4, lyricsPreviewTop + 4, 0xFFFFFFFF);
                 if (lines.size() > 1) {
-                    context.text(font, font.plainSubstrByWidth(lines.get(1).text(), leftWidth - 8), leftX + 4, height - 30, 0xFF909090);
+                    context.text(font, font.plainSubstrByWidth(lines.get(1).text(), leftWidth - 8), leftX + 4, lyricsPreviewTop + 15, 0xFF909090);
                 }
             }
         }
@@ -513,7 +557,7 @@ public class DiscJockeyScreen extends Screen {
     private void updateLoadingState() {
         boolean loading = SongLoader.loadingSongs;
         refreshButton.active = !loading;
-        refreshButton.setMessage(loading ? LOADING_SONGS : REFRESH_SONGS);
+        refreshButton.setMessage(loading ? LOADING_SONGS : refreshIdleLabel);
         songListWidget.visible = !loading;
         songListWidget.active = !loading;
         if (loading) songListWidget.setSelected(null);
