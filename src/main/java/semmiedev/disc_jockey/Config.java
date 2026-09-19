@@ -100,7 +100,6 @@ public class Config implements ConfigData {
     @ConfigEntry.Gui.Tooltip()
     public String lyricsCommand = "msg";
 
-    @ConfigEntry.Gui.EnumHandler(option = ConfigEntry.Gui.EnumHandler.EnumDisplayOption.BUTTON)
-    @ConfigEntry.Gui.Tooltip(count = 3)
-    public LyricsDispatch.Mode lyricsDispatch = LyricsDispatch.Mode.AUTO;
+    @ConfigEntry.Gui.Tooltip(count = 2)
+    public boolean lyricsUseSelector = true;
 }
