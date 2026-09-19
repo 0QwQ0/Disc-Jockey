@@ -53,7 +53,8 @@ public final class LyricsChat {
 
     /** Warns the player that the private mode is spread over many players. Returns true if warned. */
     public static boolean shouldWarnAboutTargets() {
-        return LyricsDispatch.targetCount() > LyricsDispatch.WARN_TARGET_COUNT;
+        // Counted before the recipients are capped to the burst, which never exceeds nine players.
+        return LyricsDispatch.playersInRadius() > LyricsDispatch.WARN_TARGET_COUNT;
     }
 
     public static Component warningText(int targets, int intervalMillis) {
