@@ -45,6 +45,8 @@ public class Main implements ClientModInitializer {
         configHolder = AutoConfig.register(Config.class, JanksonConfigSerializer::new);
         config = configHolder.getConfig();
         PlaylistManager.syncPlayerState();
+        LyricsPlayer.register();
+        LyricsChat.register();
 
         songsFolder = new File(FabricLoader.getInstance().getConfigDir() + File.separator + MOD_ID + File.separator + "songs");
         if (!songsFolder.isDirectory()) songsFolder.mkdirs();

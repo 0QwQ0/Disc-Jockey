@@ -89,5 +89,19 @@
   "text.autoconfig.disc_jockey.option.packetRateGreenMax": "发包速率：绿色上限",
   "text.autoconfig.disc_jockey.option.packetRateGreenMax.@Tooltip": "播放歌曲时模组会向服务器发送音符盒交互包。每秒不超过该值时，歌曲选择界面右上角显示的速率保持绿色。",
   "text.autoconfig.disc_jockey.option.packetRateYellowMax": "发包速率：黄色上限",
-  "text.autoconfig.disc_jockey.option.packetRateYellowMax.@Tooltip": "每秒不超过该值时显示为黄色，超过则显示为红色。不应低于绿色上限。"
+  "text.autoconfig.disc_jockey.option.packetRateYellowMax.@Tooltip": "每秒不超过该值时显示为黄色，超过则显示为红色。不应低于绿色上限。",
+  "disc_jockey.lyrics.selector_not_allowed": "Disc Jockey：该服务器不允许使用目标选择器，私聊歌词已改为逐个玩家发送。",
+  "disc_jockey.lyrics.dm_warning": "Disc Jockey：私聊半径内有 %s 名玩家。\n\nMinecraft 每秒只允许大约一条聊天或命令，对象这么多时歌词会发送得很慢，且仍可能被服务器判为刷屏。\n\n是否改用公屏输出？",
+  "text.autoconfig.disc_jockey.option.lyricsMinIntervalMs": "歌词：最小发送间隔（毫秒）",
+  "text.autoconfig.disc_jockey.option.lyricsMinIntervalMs.@Tooltip": "Minecraft 对每秒超过约一条的聊天或命令会直接踢出，因此歌词至少间隔该时间发送。",
+  "text.autoconfig.disc_jockey.option.lyricsDmRadius": "歌词：私聊半径",
+  "text.autoconfig.disc_jockey.option.lyricsDmRadius.@Tooltip": "关闭公屏输出时，该范围内的玩家会收到私聊歌词。上限 40。",
+  "text.autoconfig.disc_jockey.option.lyricsDmMaxTargets": "歌词：私聊对象上限",
+  "text.autoconfig.disc_jockey.option.lyricsDmMaxTargets.@Tooltip": "私聊模式下最多服务的玩家数（就近优先），因为每多一个对象就要多一条命令。",
+  "text.autoconfig.disc_jockey.option.lyricsCommand": "歌词：私聊命令",
+  "text.autoconfig.disc_jockey.option.lyricsCommand.@Tooltip": "发送私聊歌词所用的命令。部分服务器禁用或改名了 /msg。",
+  "text.autoconfig.disc_jockey.option.lyricsDispatch": "歌词：私聊发送方式",
+  "text.autoconfig.disc_jockey.option.lyricsDispatch.@Tooltip[0]": "选择器：一条命令覆盖范围内所有人，但多数服务器只允许管理员使用选择器。",
+  "text.autoconfig.disc_jockey.option.lyricsDispatch.@Tooltip[1]": "逐个发送：每个玩家一条命令，摊在时间上发送。",
+  "text.autoconfig.disc_jockey.option.lyricsDispatch.@Tooltip[2]": "自动：先尝试选择器，服务器拒绝时自动退化为逐个发送。"
 }
