@@ -421,6 +421,10 @@ public class DiscJockeyScreen extends Screen {
         context.text(font, Component.translatable(Main.MOD_ID + ".screen.playlist.count", PlaylistManager.size()).getString(),
                 leftX, 138, 0xFFDDDDDD);
         if (PlaylistManager.isEmpty()) drawEmptyPlaylistHint(context, leftX, playlistWidget.getY() + 8, leftWidth);
+
+        // Top right corner of the playback panel: how fast the mod is currently hitting the server.
+        String packetRate = PacketRateMeter.text();
+        context.text(font, packetRate, width / 2 - 12 - font.width(packetRate), 34, PacketRateMeter.color());
     }
 
     private void updateLoadingState() {
