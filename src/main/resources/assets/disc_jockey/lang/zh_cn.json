@@ -110,6 +110,6 @@
   "disc_jockey.screen.lyrics.public": "公屏",
   "disc_jockey.screen.lyrics.public.tooltip": "勾选：歌词发送到服务器公屏。取消勾选：仅发送给附近的玩家。",
   "disc_jockey.screen.lyrics.warning": "改用私聊输出歌词？",
-  "disc_jockey.screen.lyrics.targets": "范围内 %s 名玩家",
+  "disc_jockey.screen.lyrics.targets": "范围内 %s 人",
   "disc_jockey.screen.lyrics.empty": "此处暂无歌词"
 }
