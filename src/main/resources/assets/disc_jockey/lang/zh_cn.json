@@ -85,5 +85,9 @@
   "disc_jockey.screen.shuffle.on": "随机",
   "disc_jockey.screen.shuffle.off": "顺序",
   "disc_jockey.screen.shuffle.on.tooltip": "播放顺序：随机",
-  "disc_jockey.screen.shuffle.off.tooltip": "播放顺序：按播放列表顺序"
+  "disc_jockey.screen.shuffle.off.tooltip": "播放顺序：按播放列表顺序",
+  "text.autoconfig.disc_jockey.option.packetRateGreenMax": "发包速率：绿色上限",
+  "text.autoconfig.disc_jockey.option.packetRateGreenMax.@Tooltip": "播放歌曲时模组会向服务器发送音符盒交互包。每秒不超过该值时，歌曲选择界面右上角显示的速率保持绿色。",
+  "text.autoconfig.disc_jockey.option.packetRateYellowMax": "发包速率：黄色上限",
+  "text.autoconfig.disc_jockey.option.packetRateYellowMax.@Tooltip": "每秒不超过该值时显示为黄色，超过则显示为红色。不应低于绿色上限。"
 }

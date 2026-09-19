@@ -62,4 +62,14 @@ public class Config implements ConfigData {
     /** When true, the playlist is traversed in a shuffled order instead of its stored order. */
     @ConfigEntry.Gui.Excluded
     public boolean shufflePlaylist = false;
+
+    /** Packet rate that is still displayed in green, in packets per second. */
+    @ConfigEntry.BoundedDiscrete(min = 0, max = 5000)
+    @ConfigEntry.Gui.Tooltip()
+    public int packetRateGreenMax = 200;
+
+    /** Packet rate that is still displayed in yellow; anything above it is shown in red. */
+    @ConfigEntry.BoundedDiscrete(min = 0, max = 5000)
+    @ConfigEntry.Gui.Tooltip()
+    public int packetRateYellowMax = 500;
 }
