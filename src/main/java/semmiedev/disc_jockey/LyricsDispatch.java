@@ -19,24 +19,6 @@ import java.util.List;
  * server refuses selectors.
  */
 public final class LyricsDispatch {
-    public enum Mode {
-        /** Use the selector when the server allows it, otherwise talk to one player at a time. */
-        AUTO,
-        /** Always address all nearby players with one command. Requires operator permissions. */
-        SELECTOR,
-        /** Always send one command per player, rotating through them. */
-        ROUND_ROBIN;
-
-        @Override
-        public String toString() {
-            return switch (this) {
-                case AUTO -> "Auto (selector, else one by one)";
-                case SELECTOR -> "Selector (needs operator)";
-                case ROUND_ROBIN -> "One by one";
-            };
-        }
-    }
-
     /** Above this many nearby players the private mode is likely to trip the server's spam filter. */
     public static final int WARN_TARGET_COUNT = 15;
 
@@ -76,13 +58,13 @@ public final class LyricsDispatch {
         String command = Main.config.lyricsCommand;
         if (command == null || command.isBlank()) command = "msg";
 
-        if (mode() != Mode.ROUND_ROBIN) {
+        if (useSelector()) {
             Minecraft client = Minecraft.getInstance();
             String self = client.player == null ? "" : client.player.getScoreboardName();
             int radius = Math.max(1, Math.min(40, Main.config.lyricsDmRadius));
             String selector = "@a[distance=.." + radius + (self.isEmpty() ? "" : ",name=!" + self) + "]";
             connection.sendCommand(command + " " + selector + " " + message);
-            if (mode() == Mode.AUTO && !selectorRefused && selectorProbeAt == -1) selectorProbeAt = System.currentTimeMillis();
+            if (!selectorRefused && selectorProbeAt == -1) selectorProbeAt = System.currentTimeMillis();
             return;
         }
 
@@ -91,13 +73,18 @@ public final class LyricsDispatch {
         connection.sendCommand(command + " " + target.getScoreboardName() + " " + message);
     }
 
-    public static Mode mode() {
-        return Main.config.lyricsDispatch == null ? Mode.AUTO : Main.config.lyricsDispatch;
+    /**
+     * True while target selectors are the preferred way of addressing the players nearby. Selectors
+     * need operator permissions on most servers, so the first refusal switches to one command per
+     * player for the rest of the session.
+     */
+    public static boolean useSelector() {
+        return Main.config.lyricsUseSelector && !selectorRefused;
     }
 
     /** True while a selector command is waiting to see whether the server accepts it. */
     public static boolean awaitingSelectorProbe() {
-        if (mode() != Mode.AUTO || selectorRefused || selectorProbeAt == -1) return false;
+        if (!useSelector() || selectorProbeAt == -1) return false;
         if (System.currentTimeMillis() - selectorProbeAt > SELECTOR_PROBE_MILLIS) {
             // No complaint arrived, so keep using the selector.
             selectorProbeAt = -1;
