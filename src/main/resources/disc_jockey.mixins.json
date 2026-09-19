@@ -2,7 +2,7 @@
   "required": true,
   "minVersion": "0.8",
   "package": "semmiedev.disc_jockey.mixin",
-  "compatibilityLevel": "JAVA_25",
+  "compatibilityLevel": "JAVA_21",
   "mixins": [
     "ClientWorldMixin"
   ],

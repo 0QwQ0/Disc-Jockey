@@ -1,7 +1,7 @@
 package semmiedev.disc_jockey.gui.screen;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.CycleButton;
@@ -110,7 +110,7 @@ public class DiscJockeyScreen extends Screen {
 
         // Right panel buttons layout - dynamically centered
         int rightCenter = width / 2 + (width / 2 - 10) / 2;
-        parentDirectoryButton = Button.builder(Component.translatable(Main.MOD_ID + ".screen.parent_directory"), _ -> {
+        parentDirectoryButton = Button.builder(Component.translatable(Main.MOD_ID + ".screen.parent_directory"), unused -> {
             int separator = currentDirectory.lastIndexOf('/');
             changeDirectory(separator < 0 ? "" : currentDirectory.substring(0, separator));
         }).bounds(width / 2, 32, 60, 20).build();
@@ -124,7 +124,7 @@ public class DiscJockeyScreen extends Screen {
         int gap = Math.min(10, (width / 2 - 10 - btnW * 3) / 2);
         int btnStart = rightCenter - (btnW * 3 + gap * 2) / 2;
 
-        playButton = Button.builder(PLAY, _ -> {
+        playButton = Button.builder(PLAY, unused -> {
             if (Main.SONG_PLAYER.running) {
                 PlaylistManager.stop();
             } else {
@@ -142,7 +142,7 @@ public class DiscJockeyScreen extends Screen {
         }).bounds(btnStart, btnY, btnW, 20).build();
         addRenderableWidget(playButton);
 
-        previewButton = Button.builder(PREVIEW, _ -> {
+        previewButton = Button.builder(PREVIEW, unused -> {
             if (Main.PREVIEWER.running) {
                 Main.PREVIEWER.stop();
             } else {
@@ -152,7 +152,7 @@ public class DiscJockeyScreen extends Screen {
         }).bounds(btnStart + btnW + gap, btnY, btnW, 20).build();
         addRenderableWidget(previewButton);
 
-        blocksButton = Button.builder(Component.translatable(Main.MOD_ID + ".screen.blocks"), _ -> {
+        blocksButton = Button.builder(Component.translatable(Main.MOD_ID + ".screen.blocks"), unused -> {
                 Song selected = getSelectedSong();
                 if (selected == null) return;
 
@@ -163,7 +163,7 @@ public class DiscJockeyScreen extends Screen {
                     return;
                 }
 
-                minecraft.gui.setScreen(null);
+                minecraft.setScreen(null);
 
                 BlocksOverlay.songRelativePath = selected.relativePath;
                 BlocksOverlay.amountOfNoteBlocks = selected.uniqueNotes.size();
@@ -248,7 +248,7 @@ public class DiscJockeyScreen extends Screen {
                     + Math.max(0, (leftWidth - switchesWidth - targetSlotWidth - controlsWidth - controlGap * 2) / 2)
                 : leftX + Math.max(0, (leftWidth - controlsWidth) / 2);
 
-        previousButton = Button.builder(Component.literal("⏮"), _ -> PlaylistManager.skip(-1))
+        previousButton = Button.builder(Component.literal("⏮"), unused -> PlaylistManager.skip(-1))
                 .pos(controlX, controlsY).size(transportSize, transportSize).build();
         previousButton.setTooltip(Tooltip.create(Component.translatable(Main.MOD_ID + ".screen.previous")));
         addRenderableWidget(previousButton);
@@ -259,7 +259,7 @@ public class DiscJockeyScreen extends Screen {
             )
             .displayOnlyValue()
             .withValues(true, false)
-            .create(controlX + transportSize + controlGap, controlsY, transportSize, transportSize, Component.empty(), (_, value) -> {
+            .create(controlX + transportSize + controlGap, controlsY, transportSize, transportSize, Component.empty(), (unused, value) -> {
                 if (value && Main.SONG_PLAYER.song != null && Main.SONG_PLAYER.didSongReachEnd) {
                     Main.SONG_PLAYER.start(Main.SONG_PLAYER.song);
                 } else {
@@ -268,13 +268,13 @@ public class DiscJockeyScreen extends Screen {
             });
         addRenderableWidget(playPauseButton);
 
-        Button stopButton = Button.builder(Component.literal("⏹"), _ -> PlaylistManager.stop())
+        Button stopButton = Button.builder(Component.literal("⏹"), unused -> PlaylistManager.stop())
                 .pos(controlX + (transportSize + controlGap) * 2, controlsY)
                 .size(transportSize, transportSize)
                 .build();
         addRenderableWidget(stopButton);
 
-        nextButton = Button.builder(Component.literal("⏭"), _ -> PlaylistManager.skip(1))
+        nextButton = Button.builder(Component.literal("⏭"), unused -> PlaylistManager.skip(1))
                 .pos(controlX + (transportSize + controlGap) * 3, controlsY).size(transportSize, transportSize).build();
         nextButton.setTooltip(Tooltip.create(Component.translatable(Main.MOD_ID + ".screen.next")));
         addRenderableWidget(nextButton);
@@ -286,7 +286,7 @@ public class DiscJockeyScreen extends Screen {
             .displayOnlyValue()
             .withValues(true, false)
             .create(controlX + (transportSize + controlGap) * 4, controlsY, modeWidth, transportSize, Component.empty(),
-                    (_, value) -> PlaylistManager.setShuffle(value));
+                    (unused, value) -> PlaylistManager.setShuffle(value));
         shuffleButton.setTooltip(Tooltip.create(Component.translatable(
                 Main.MOD_ID + (PlaylistManager.shuffle() ? ".screen.shuffle.on.tooltip" : ".screen.shuffle.off.tooltip"))));
         addRenderableWidget(shuffleButton);
@@ -298,7 +298,7 @@ public class DiscJockeyScreen extends Screen {
             .displayOnlyValue()
             .withValues(Config.RepeatMode.SEQUENTIAL, Config.RepeatMode.PLAYLIST, Config.RepeatMode.SINGLE)
             .create(controlX + (transportSize + controlGap) * 4 + modeWidth + controlGap, controlsY, modeWidth, transportSize,
-                    Component.empty(), (_, value) -> PlaylistManager.setMode(value));
+                    Component.empty(), (unused, value) -> PlaylistManager.setMode(value));
         repeatButton.setTooltip(Tooltip.create(Component.translatable(
                 Main.MOD_ID + ".screen.repeat." + PlaylistManager.mode().name().toLowerCase(Locale.ROOT) + ".tooltip")));
         addRenderableWidget(repeatButton);
@@ -308,7 +308,7 @@ public class DiscJockeyScreen extends Screen {
                 .pos(leftX, lyricsRowY)
                 .selected(Main.config.lyricsChatOutput)
                 .tooltip(Tooltip.create(Component.translatable(Main.MOD_ID + ".screen.lyrics.tooltip")))
-                .onValueChange((_, value) -> {
+                .onValueChange((unused, value) -> {
                     Main.config.lyricsChatOutput = value;
                     Main.configHolder.save();
                 })
@@ -319,7 +319,7 @@ public class DiscJockeyScreen extends Screen {
                 .pos(leftX + lyricsBoxWidth + 8, lyricsRowY)
                 .selected(Main.config.lyricsOutputToPublic)
                 .tooltip(Tooltip.create(Component.translatable(Main.MOD_ID + ".screen.lyrics.public.tooltip")))
-                .onValueChange((_, value) -> onLyricsOutputChanged(value))
+                .onValueChange((unused, value) -> onLyricsOutputChanged(value))
                 .build();
         addRenderableWidget(lyricsPublicCheckbox);
 
@@ -357,7 +357,7 @@ public class DiscJockeyScreen extends Screen {
         refreshIdleLabel = fullLabels ? REFRESH_SONGS : REFRESH_SHORT;
 
         int cursor = leftX;
-        refreshButton = Button.builder(refreshIdleLabel, _ -> {
+        refreshButton = Button.builder(refreshIdleLabel, unused -> {
             SongLoader.loadSongs();
             updateLoadingState();
         }).pos(cursor, bottomY).size(utilityWidth, 20).build();
@@ -367,15 +367,15 @@ public class DiscJockeyScreen extends Screen {
         cursor += utilityWidth + rowGap;
 
         Button folderButton = Button.builder(
-                fullLabels ? Component.translatable(Main.MOD_ID + ".screen.open_folder") : FOLDER_SHORT, _ ->
+                fullLabels ? Component.translatable(Main.MOD_ID + ".screen.open_folder") : FOLDER_SHORT, unused ->
                 Util.getPlatform().openPath(Main.songsFolder.toPath())
         ).pos(cursor, bottomY).size(utilityWidth, 20).build();
         folderButton.setTooltip(Tooltip.create(Component.translatable(Main.MOD_ID + ".screen.open_folder")));
         addRenderableWidget(folderButton);
         cursor += utilityWidth + rowGap;
 
-        addRenderableWidget(Button.builder(CONFIG, _ ->
-                minecraft.gui.setScreen(me.shedaniel.autoconfig.AutoConfigClient.getConfigScreen(Config.class, this).get())
+        addRenderableWidget(Button.builder(CONFIG, unused ->
+                minecraft.setScreen(me.shedaniel.autoconfig.AutoConfigClient.getConfigScreen(Config.class, this).get())
         ).pos(cursor, bottomY).size(utilityWidth, 20).build());
         cursor += utilityWidth + rowGap;
 
@@ -411,12 +411,12 @@ public class DiscJockeyScreen extends Screen {
             return;
         }
         // Leave the checkbox checked until the user confirms, so cancelling keeps public chat.
-        minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
+        minecraft.setScreen(new ConfirmScreen(confirmed -> {
             if (confirmed) {
                 Main.config.lyricsOutputToPublic = false;
                 Main.configHolder.save();
             }
-            minecraft.gui.setScreen(this);
+            minecraft.setScreen(this);
         }, Component.translatable(Main.MOD_ID + ".screen.lyrics.warning"), LyricsChat.warningText(targets, Main.config.lyricsMinIntervalMs)));
     }
 
@@ -429,7 +429,7 @@ public class DiscJockeyScreen extends Screen {
             if (valid) Main.SONG_PLAYER.setSpeed(value);
         }
         if (!valid) {
-            SystemToast.add(minecraft.gui.toastManager(), INVALID_SPEED_TOAST, PLAYBACK_SPEED,
+            SystemToast.add(minecraft.getToastManager(), INVALID_SPEED_TOAST, PLAYBACK_SPEED,
                     Component.translatable(Main.MOD_ID + ".screen.invalid_playback_speed"));
         }
         updatePlaybackSpeedInput();
@@ -477,8 +477,8 @@ public class DiscJockeyScreen extends Screen {
     }
 
     @Override
-    public void extractBackground(@NonNull GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
-        super.extractBackground(context, mouseX, mouseY, delta);
+    public void renderBackground(@NonNull GuiGraphics context, int mouseX, int mouseY, float delta) {
+        super.renderBackground(context, mouseX, mouseY, delta);
         // Playback panel, including the control row with the lyrics switches.
         context.fill(5, 32, width / 2, lyricsRowY + 22, 0x3F000000);
         // Lyrics preview, between the playback panel and the playlist panel.
@@ -491,63 +491,63 @@ public class DiscJockeyScreen extends Screen {
     }
 
     /** Elapsed and total time below the progress bar, both scaled by the playback speed. */
-    private void drawTimestamps(@NonNull GuiGraphicsExtractor context, int leftX, int leftWidth) {
+    private void drawTimestamps(@NonNull GuiGraphics context, int leftX, int leftWidth) {
         if (Main.SONG_PLAYER.song == null) return;
         float speed = Main.SONG_PLAYER.speed > 0.0001f ? Main.SONG_PLAYER.speed : 1.0f;
         String elapsed = SongTimeSliderWidget.formatTimestamp((int) (Main.SONG_PLAYER.getSongElapsedSeconds() / speed));
         String total = SongTimeSliderWidget.formatTimestamp((int) (Main.SONG_PLAYER.song.getLengthInSeconds() / speed));
-        context.text(font, elapsed, leftX, 99, 0xFFAAAAAA);
-        context.text(font, total, leftX + leftWidth - font.width(total), 99, 0xFFAAAAAA);
+        context.drawString(font, elapsed, leftX, 99, 0xFFAAAAAA);
+        context.drawString(font, total, leftX + leftWidth - font.width(total), 99, 0xFFAAAAAA);
     }
 
-    private void drawEmptyPlaylistHint(@NonNull GuiGraphicsExtractor context, int x, int y, int maxWidth) {
+    private void drawEmptyPlaylistHint(@NonNull GuiGraphics context, int x, int y, int maxWidth) {
         FormattedText source = Component.translatable(Main.MOD_ID + ".screen.playlist.empty");
         int lineY = y;
         for (FormattedCharSequence line : font.split(source, maxWidth)) {
-            context.centeredText(font, line, x + maxWidth / 2, lineY, 0xFF808080);
+            context.drawCenteredString(font, line, x + maxWidth / 2, lineY, 0xFF808080);
             lineY += 10;
         }
     }
 
     @Override
-    public void extractRenderState(@NonNull GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
-        super.extractRenderState(context, mouseX, mouseY, delta);
+    public void render(@NonNull GuiGraphics context, int mouseX, int mouseY, float delta) {
+        super.render(context, mouseX, mouseY, delta);
 
         int rightCenter = width / 2 + (width / 2 - 10) / 2;
-        context.centeredText(font, DROP_HINT, width / 2, 5, 0xFFFFFFFF);
-        context.centeredText(font, SELECT_SONG, rightCenter, 20, 0xFFFFFFFF);
+        context.drawCenteredString(font, DROP_HINT, width / 2, 5, 0xFFFFFFFF);
+        context.drawCenteredString(font, SELECT_SONG, rightCenter, 20, 0xFFFFFFFF);
         if (SongLoader.loadingSongs) {
-            context.centeredText(font, LOADING_SONGS, rightCenter, 56 + (height - 120) / 2, 0xFFFFFFFF);
+            context.drawCenteredString(font, LOADING_SONGS, rightCenter, 56 + (height - 120) / 2, 0xFFFFFFFF);
         }
 
         int leftX = 10;
         int leftWidth = width / 2 - 20;
         drawTimestamps(context, leftX, leftWidth);
-        context.text(font, Component.translatable(Main.MOD_ID + ".screen.playlist.count", PlaylistManager.size()).getString(),
+        context.drawString(font, Component.translatable(Main.MOD_ID + ".screen.playlist.count", PlaylistManager.size()).getString(),
                 leftX, playlistWidget.getY() - 10, 0xFFDDDDDD);
         if (PlaylistManager.isEmpty()) drawEmptyPlaylistHint(context, leftX, playlistWidget.getY() + 8, leftWidth);
 
         // Top right corner of the playback panel: how fast the mod is currently hitting the server.
         String packetRate = PacketRateMeter.text();
-        context.text(font, packetRate, width / 2 - 12 - font.width(packetRate), 34, PacketRateMeter.color());
+        context.drawString(font, packetRate, width / 2 - 12 - font.width(packetRate), 34, PacketRateMeter.color());
 
         // Right end of the control row: how many players private lyrics would reach right now.
         // Green while somebody is in range, grey at zero.
         int targets = LyricsDispatch.targetCount();
         String targetText = Component.translatable(Main.MOD_ID + ".screen.lyrics.targets", targets).getString();
-        context.text(font, targetText, leftX + leftWidth - font.width(targetText), lyricsRowY + 6,
+        context.drawString(font, targetText, leftX + leftWidth - font.width(targetText), lyricsRowY + 6,
                 targets > 0 ? 0xFF55FF55 : 0xFF808080);
 
         // Lyrics preview, only while the playing song has a paired lyric file.
         if (showLyricsPreview && LyricsPlayer.hasLyrics()) {
             List<Lyrics.Line> lines = LyricsPlayer.previewLines();
             if (lines.isEmpty()) {
-                context.centeredText(font, Component.translatable(Main.MOD_ID + ".screen.lyrics.empty"),
+                context.drawCenteredString(font, Component.translatable(Main.MOD_ID + ".screen.lyrics.empty"),
                         leftX + leftWidth / 2, lyricsPreviewTop + 8, 0xFF808080);
             } else {
-                context.text(font, font.plainSubstrByWidth(lines.get(0).text(), leftWidth - 8), leftX + 4, lyricsPreviewTop + 4, 0xFFFFFFFF);
+                context.drawString(font, font.plainSubstrByWidth(lines.get(0).text(), leftWidth - 8), leftX + 4, lyricsPreviewTop + 4, 0xFFFFFFFF);
                 if (lines.size() > 1) {
-                    context.text(font, font.plainSubstrByWidth(lines.get(1).text(), leftWidth - 8), leftX + 4, lyricsPreviewTop + 15, 0xFF909090);
+                    context.drawString(font, font.plainSubstrByWidth(lines.get(1).text(), leftWidth - 8), leftX + 4, lyricsPreviewTop + 15, 0xFF909090);
                 }
             }
         }
@@ -678,7 +678,7 @@ public class DiscJockeyScreen extends Screen {
     @Override
     public void onFilesDrop(List<Path> paths) {
         if (SongLoader.loadingSongs) {
-            SystemToast.add(minecraft.gui.toastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME, Component.translatable(Main.MOD_ID + ".still_loading"));
+            SystemToast.add(minecraft.getToastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME, Component.translatable(Main.MOD_ID + ".still_loading"));
             return;
         }
         List<Path> files = paths.stream().filter(Files::isRegularFile).toList();
@@ -687,7 +687,7 @@ public class DiscJockeyScreen extends Screen {
         String string = files.stream().map(Path::getFileName).map(Path::toString).collect(Collectors.joining(", "));
         if (string.length() > 300) string = string.substring(0, 300) + "...";
 
-        minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
+        minecraft.setScreen(new ConfirmScreen(confirmed -> {
             if (confirmed) {
                 boolean lyricsImported = false;
                 for (Path path : files) {
@@ -707,7 +707,7 @@ public class DiscJockeyScreen extends Screen {
                         }
                     } catch (IOException exception) {
                         Main.LOGGER.warn("Failed to import song file from {} to {}", path, target, exception);
-                        SystemToast.add(minecraft.gui.toastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME,
+                        SystemToast.add(minecraft.getToastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME,
                                 Component.translatable(Main.MOD_ID + ".screen.import_failed", SongLoader.relativePath(target)));
                     }
                 }
@@ -715,7 +715,7 @@ public class DiscJockeyScreen extends Screen {
                 SongLoader.sort();
                 if (lyricsImported) SongLoader.loadSongs();
             }
-            minecraft.gui.setScreen(this);
+            minecraft.setScreen(this);
         }, Component.translatable(Main.MOD_ID + ".screen.drop_confirm", currentDirectory.isEmpty() ? "/" : currentDirectory + "/"), Component.literal(string)));
     }
 

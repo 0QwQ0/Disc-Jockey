@@ -2,10 +2,8 @@ pluginManagement {
     repositories {
         mavenCentral()
         gradlePluginPortal()
-        maven { url 'https://maven.fabricmc.net/' }
-    }
-
-    plugins {
-        id 'net.fabricmc.fabric-loom' version "${loom_version}"
+        maven { url = 'https://maven.fabricmc.net/' }
     }
 }
+
+rootProject.name = 'Disc-Jockey'

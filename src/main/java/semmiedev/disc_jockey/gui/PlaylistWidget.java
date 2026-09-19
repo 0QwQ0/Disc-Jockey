@@ -1,7 +1,7 @@
 package semmiedev.disc_jockey.gui;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -86,7 +86,7 @@ public class PlaylistWidget extends ObjectSelectionList<PlaylistWidget.PlaylistE
         }
 
         @Override
-        public void extractContent(@NonNull GuiGraphicsExtractor context, int mouseX, int mouseY, boolean hovered, float tickDelta) {
+        public void renderContent(@NonNull GuiGraphics context, int mouseX, int mouseY, boolean hovered, float tickDelta) {
             int x = getX();
             int y = getY();
             int entryWidth = getWidth();
@@ -108,7 +108,7 @@ public class PlaylistWidget extends ObjectSelectionList<PlaylistWidget.PlaylistE
             // The playing row gets a bright green label on top of its green background, and a song
             // with a paired .lrc file gets a marker right after its name.
             int color = isPlaying ? 0xFF55FF55 : (isSelected ? 0xFFFFFFFF : 0xFFCFCFCF);
-            context.text(client.font, trimmed, x + 3, y + 6, color);
+            context.drawString(client.font, trimmed, x + 3, y + 6, color);
             if (song.lyrics != null) {
                 int iconX = Math.min(x + 3 + client.font.width(trimmed) + 3, x + entryWidth - 34);
                 context.blit(RenderPipelines.GUI_TEXTURED, ICONS, iconX, y + 5, 0.0f, 36.0f, 13, 12, 52, 48);

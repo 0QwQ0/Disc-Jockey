@@ -1,7 +1,7 @@
 package semmiedev.disc_jockey.gui;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -66,8 +66,8 @@ public class SongListWidget extends ObjectSelectionList<SongListWidget.ListEntry
     public abstract static class ListEntry extends Entry<ListEntry> {
         protected final Minecraft client = Minecraft.getInstance();
 
-        protected void drawText(GuiGraphicsExtractor context, String text, int x, int y, int width, int color) {
-            context.text(client.font, client.font.plainSubstrByWidth(text, width), x, y, color);
+        protected void drawText(GuiGraphics context, String text, int x, int y, int width, int color) {
+            context.drawString(client.font, client.font.plainSubstrByWidth(text, width), x, y, color);
         }
     }
 
@@ -86,7 +86,7 @@ public class SongListWidget extends ObjectSelectionList<SongListWidget.ListEntry
         }
 
         @Override
-        public void extractContent(@NonNull GuiGraphicsExtractor context, int mouseX, int mouseY, boolean hovered, float tickDelta) {
+        public void renderContent(@NonNull GuiGraphics context, int mouseX, int mouseY, boolean hovered, float tickDelta) {
             int x = getX();
             int y = getY();
             context.fill(x + 4, y + 5, x + 10, y + 8, 0xFFD5AE50);
@@ -134,7 +134,7 @@ public class SongListWidget extends ObjectSelectionList<SongListWidget.ListEntry
         }
 
         @Override
-        public void extractContent(@NonNull GuiGraphicsExtractor context, int mouseX, int mouseY, boolean hovered, float tickDelta) {
+        public void renderContent(@NonNull GuiGraphics context, int mouseX, int mouseY, boolean hovered, float tickDelta) {
             this.x = getX(); this.y = getY();
             int entryWidth = getWidth();
             int entryHeight = getHeight();
@@ -146,7 +146,7 @@ public class SongListWidget extends ObjectSelectionList<SongListWidget.ListEntry
             }
 
             String nameText = client.font.plainSubstrByWidth(song.displayName, entryWidth - 40);
-            context.text(client.font, nameText, x + 36, y + 6, isSelected ? 0xFFFFFFFF : 0xFF808080);
+            context.drawString(client.font, nameText, x + 36, y + 6, isSelected ? 0xFFFFFFFF : 0xFF808080);
             if (song.lyrics != null) {
                 // Marker for a song that has a .lrc file next to it, right after the name.
                 int iconX = Math.min(x + 36 + client.font.width(nameText) + 3, x + entryWidth - 16);

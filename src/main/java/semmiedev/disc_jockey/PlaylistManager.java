@@ -20,7 +20,7 @@ import java.util.Random;
  * recreates every {@link Song} instance, so this class never keeps {@link Song} references
  * across a reload: {@link #resolveFromConfig()} rebuilds them from the stored paths.
  */
-public class PlaylistManager implements ClientTickEvents.StartLevelTick {
+public class PlaylistManager implements ClientTickEvents.StartWorldTick {
     /** Resolved playlist entries in the user's order. Only touched on the client thread. */
     public static final ArrayList<Song> ENTRIES = new ArrayList<>();
 

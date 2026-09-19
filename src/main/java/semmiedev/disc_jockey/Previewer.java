@@ -7,7 +7,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.NonNull;
 
-public class Previewer implements ClientTickEvents.StartLevelTick {
+public class Previewer implements ClientTickEvents.StartWorldTick {
     public boolean running;
 
     private int i;

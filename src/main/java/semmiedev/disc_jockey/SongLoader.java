@@ -72,7 +72,7 @@ public class SongLoader {
                 Main.LOGGER.error("Unable to reload songs from {}", Main.songsFolder, exception);
                 client.execute(() -> {
                     loadingSongs = false;
-                    SystemToast.add(client.gui.toastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME, Component.translatable(Main.MOD_ID + ".loading_failed"));
+                    SystemToast.add(client.getToastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME, Component.translatable(Main.MOD_ID + ".loading_failed"));
                 });
                 return;
             }
@@ -91,7 +91,7 @@ public class SongLoader {
                 attachLyrics(loadedLyrics);
                 reloadVersion++;
                 loadingSongs = false;
-                if (showToast) SystemToast.add(client.gui.toastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME, Component.translatable(Main.MOD_ID + ".loading_done"));
+                if (showToast) SystemToast.add(client.getToastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME, Component.translatable(Main.MOD_ID + ".loading_done"));
                 showToast = true;
             });
         });

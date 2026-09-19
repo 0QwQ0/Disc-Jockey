@@ -102,7 +102,7 @@ public final class LyricsDispatch {
         warnedAboutSelector = true;
         Minecraft client = Minecraft.getInstance();
         if (client.gui != null) {
-            client.gui.hud.getChat().addClientSystemMessage(net.minecraft.network.chat.Component.translatable(
+            client.gui.getChat().addMessage(net.minecraft.network.chat.Component.translatable(
                     Main.MOD_ID + ".lyrics.selector_not_allowed"));
         }
     }

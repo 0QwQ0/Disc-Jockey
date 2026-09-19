@@ -29,11 +29,7 @@ public record Note(NoteBlockInstrument instrument, byte note) {
             NoteBlockInstrument.DIDGERIDOO,
             NoteBlockInstrument.BIT,
             NoteBlockInstrument.BANJO,
-            NoteBlockInstrument.PLING,
-            NoteBlockInstrument.TRUMPET,
-            NoteBlockInstrument.TRUMPET_EXPOSED,
-            NoteBlockInstrument.TRUMPET_WEATHERED,
-            NoteBlockInstrument.TRUMPET_OXIDIZED
+            NoteBlockInstrument.PLING
     };
 
     static {
@@ -44,7 +40,8 @@ public record Note(NoteBlockInstrument instrument, byte note) {
         INSTRUMENT_BLOCKS.put(NoteBlockInstrument.BASS, Blocks.OAK_PLANKS);
         INSTRUMENT_BLOCKS.put(NoteBlockInstrument.FLUTE, Blocks.CLAY);
         INSTRUMENT_BLOCKS.put(NoteBlockInstrument.BELL, Blocks.GOLD_BLOCK);
-        INSTRUMENT_BLOCKS.put(NoteBlockInstrument.GUITAR, Blocks.WOOL.white());
+        // 1.21.11 has no BlockSetType "wool" holder anymore, so the plain white wool block is used.
+        INSTRUMENT_BLOCKS.put(NoteBlockInstrument.GUITAR, Blocks.WHITE_WOOL);
         INSTRUMENT_BLOCKS.put(NoteBlockInstrument.CHIME, Blocks.PACKED_ICE);
         INSTRUMENT_BLOCKS.put(NoteBlockInstrument.XYLOPHONE, Blocks.BONE_BLOCK);
         INSTRUMENT_BLOCKS.put(NoteBlockInstrument.IRON_XYLOPHONE, Blocks.IRON_BLOCK);
@@ -53,9 +50,5 @@ public record Note(NoteBlockInstrument instrument, byte note) {
         INSTRUMENT_BLOCKS.put(NoteBlockInstrument.BIT, Blocks.EMERALD_BLOCK);
         INSTRUMENT_BLOCKS.put(NoteBlockInstrument.BANJO, Blocks.HAY_BLOCK);
         INSTRUMENT_BLOCKS.put(NoteBlockInstrument.PLING, Blocks.GLOWSTONE);
-        INSTRUMENT_BLOCKS.put(NoteBlockInstrument.TRUMPET, Blocks.COPPER_BLOCK.weathering().unaffected());
-        INSTRUMENT_BLOCKS.put(NoteBlockInstrument.TRUMPET_EXPOSED, Blocks.COPPER_BLOCK.weathering().exposed());
-        INSTRUMENT_BLOCKS.put(NoteBlockInstrument.TRUMPET_WEATHERED, Blocks.COPPER_BLOCK.weathering().weathered());
-        INSTRUMENT_BLOCKS.put(NoteBlockInstrument.TRUMPET_OXIDIZED, Blocks.COPPER_BLOCK.weathering().oxidized());
     }
 }

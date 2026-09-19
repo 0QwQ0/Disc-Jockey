@@ -35,7 +35,7 @@ import java.util.Map;
 
 import static net.minecraft.ChatFormatting.RED;
 
-public class SongPlayer implements ClientTickEvents.StartLevelTick {
+public class SongPlayer implements ClientTickEvents.StartWorldTick {
     private record NotePrediction(int assumedNote, long expiryTime) {}
 
     private static boolean warned;
@@ -105,7 +105,7 @@ public class SongPlayer implements ClientTickEvents.StartLevelTick {
 
     public synchronized void start(Song song) {
         if (!Main.config.hideWarning && !warned) {
-            Minecraft.getInstance().gui.hud.getChat().addClientSystemMessage(Component.translatable("disc_jockey.warning").copy().withStyle(ChatFormatting.BOLD).withStyle(RED));
+            Minecraft.getInstance().gui.getChat().addMessage(Component.translatable("disc_jockey.warning").copy().withStyle(ChatFormatting.BOLD).withStyle(RED));
             warned = true;
             return;
         }
@@ -209,7 +209,7 @@ public class SongPlayer implements ClientTickEvents.StartLevelTick {
                 GameType gameType = client.gameMode == null ? null : client.gameMode.getPlayerMode();
                 // In the best case, gameMode would only be queried in sync Ticks, no here
                 if (gameType == null || !gameType.isSurvival()) {
-                    client.gui.hud.getChat().addClientSystemMessage(Component.translatable(Main.MOD_ID + ".player.invalid_game_mode", gameType == null ? "unknown" : gameType.getLongDisplayName()).copy().withStyle(RED));
+                    client.gui.getChat().addMessage(Component.translatable(Main.MOD_ID + ".player.invalid_game_mode", gameType == null ? "unknown" : gameType.getLongDisplayName()).copy().withStyle(RED));
                     stop();
                     return;
                 }
@@ -225,7 +225,7 @@ public class SongPlayer implements ClientTickEvents.StartLevelTick {
                     }
                     if (!canInteractWith(client.player, blockPos)) {
                         stop();
-                        client.gui.hud.getChat().addClientSystemMessage(Component.translatable(Main.MOD_ID + ".player.to_far").copy().withStyle(RED));
+                        client.gui.getChat().addMessage(Component.translatable(Main.MOD_ID + ".player.to_far").copy().withStyle(RED));
                         return;
                     }
                     Vec3 unit = Vec3.atCenterOf(blockPos).subtract(client.player.getEyePosition()).normalize();
@@ -387,8 +387,8 @@ public class SongPlayer implements ClientTickEvents.StartLevelTick {
             ArrayList<Note> missingNotes = new ArrayList<>(song.uniqueNotes);
             missingNotes.removeAll(capturedNotes);
             if (!missingNotes.isEmpty()) {
-                ChatComponent chatHud = Minecraft.getInstance().gui.hud.getChat();
-                chatHud.addClientSystemMessage(Component.translatable(Main.MOD_ID + ".player.invalid_note_blocks").copy().withStyle(RED));
+                ChatComponent chatHud = Minecraft.getInstance().gui.getChat();
+                chatHud.addMessage(Component.translatable(Main.MOD_ID + ".player.invalid_note_blocks").copy().withStyle(RED));
 
                 HashMap<Block, Integer> missing = new HashMap<>();
                 for (Note note : missingNotes) {
@@ -401,7 +401,7 @@ public class SongPlayer implements ClientTickEvents.StartLevelTick {
                 }
 
                 missingInstrumentBlocks = missing;
-                missing.forEach((block, integer) -> chatHud.addClientSystemMessage(Component.literal(block.getName().getString() + " × " + integer).copy().withStyle(RED)));
+                missing.forEach((block, integer) -> chatHud.addMessage(Component.literal(block.getName().getString() + " × " + integer).copy().withStyle(RED)));
                 stop();
             }
         } else if (!tuned) {
@@ -439,7 +439,7 @@ public class SongPlayer implements ClientTickEvents.StartLevelTick {
                     if (assumedNote != note.note()) {
                         if (!canInteractWith(client.player, blockPos)) {
                             stop();
-                            client.gui.hud.getChat().addClientSystemMessage(Component.translatable(Main.MOD_ID + ".player.to_far").copy().withStyle(RED));
+                            client.gui.getChat().addMessage(Component.translatable(Main.MOD_ID + ".player.to_far").copy().withStyle(RED));
                             return;
                         }
                         untunedNotes.put(blockPos, blockState.getValue(BlockStateProperties.NOTE));
@@ -532,7 +532,7 @@ public class SongPlayer implements ClientTickEvents.StartLevelTick {
     }
 
     private HashMap<Byte, BlockPos> getNotes(NoteBlockInstrument instrument) {
-        return noteBlocks.computeIfAbsent(instrument, _ -> new HashMap<>());
+        return noteBlocks.computeIfAbsent(instrument, unused -> new HashMap<>());
     }
 
     // Before 1.20.5, the server limits interacts to 6 Blocks from Player Eye to Block Center

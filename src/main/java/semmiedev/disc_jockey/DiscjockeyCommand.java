@@ -18,8 +18,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-import static net.fabricmc.fabric.api.client.command.v2.ClientCommands.argument;
-import static net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal;
+import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument;
+import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
 
 public class DiscjockeyCommand {
 
@@ -40,7 +40,7 @@ public class DiscjockeyCommand {
                             FabricClientCommandSource source = context.getSource();
                             if (!isLoading(context)) {
                                 Minecraft client = source.getClient();
-                                client.submit(() -> client.gui.setScreen(new DiscJockeyScreen()));
+                                client.submit(() -> client.setScreen(new DiscJockeyScreen()));
                                 return 1;
                             }
                             return 0;
@@ -57,7 +57,7 @@ public class DiscjockeyCommand {
                         )
                         .then(literal("play")
                                 .then(argument("song", StringArgumentType.greedyString())
-                                        .suggests((_, builder) -> SharedSuggestionProvider.suggest(SongLoader.SONG_SUGGESTIONS, builder))
+                                        .suggests((unused, builder) -> SharedSuggestionProvider.suggest(SongLoader.SONG_SUGGESTIONS, builder))
                                         .executes(context -> {
                                             if (!isLoading(context)) {
                                                 String relativePath = StringArgumentType.getString(context, "song");
@@ -86,7 +86,7 @@ public class DiscjockeyCommand {
                         )
                         .then(literal("speed")
                                 .then(argument("speed", FloatArgumentType.floatArg(0.0001F, 15.0F))
-                                        .suggests((_, builder) -> SharedSuggestionProvider.suggest(Arrays.asList("0.5", "0.75", "1", "1.25", "1.5", "2"), builder))
+                                        .suggests((unused, builder) -> SharedSuggestionProvider.suggest(Arrays.asList("0.5", "0.75", "1", "1.25", "1.5", "2"), builder))
                                         .executes(context -> {
                                             String speed = context.getNodes().getLast().getRange().get(context.getInput());
                                             Main.SONG_PLAYER.setSpeed(speed);
@@ -121,9 +121,9 @@ public class DiscjockeyCommand {
                                 })
                                 .then(literal("map")
                                         .then(argument("originalInstrument", StringArgumentType.word())
-                                                .suggests((_, builder) -> SharedSuggestionProvider.suggest(instrumentNamesAndAll, builder))
+                                                .suggests((unused, builder) -> SharedSuggestionProvider.suggest(instrumentNamesAndAll, builder))
                                                 .then(argument("newInstrument", StringArgumentType.word())
-                                                        .suggests((_, builder) -> SharedSuggestionProvider.suggest(instrumentNamesAndNothing, builder))
+                                                        .suggests((unused, builder) -> SharedSuggestionProvider.suggest(instrumentNamesAndNothing, builder))
                                                         .executes(context -> {
                                                             String originalInstrumentStr = StringArgumentType.getString(context, "originalInstrument");
                                                             String newInstrumentStr = StringArgumentType.getString(context, "newInstrument");
@@ -167,7 +167,7 @@ public class DiscjockeyCommand {
                                 )
                                 .then(literal("unmap")
                                         .then(argument("instrument", StringArgumentType.word())
-                                                .suggests((_, builder) -> SharedSuggestionProvider.suggest(instrumentNames, builder))
+                                                .suggests((unused, builder) -> SharedSuggestionProvider.suggest(instrumentNames, builder))
                                                 .executes(context -> {
                                                     String instrumentStr = StringArgumentType.getString(context, "instrument");
 

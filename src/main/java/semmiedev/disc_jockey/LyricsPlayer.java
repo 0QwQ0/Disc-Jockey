@@ -14,7 +14,7 @@ import java.util.List;
  * The comparison uses the song's own clock, which already advances at the configured playback
  * speed, so at 0.5x the lyrics come out at half the speed without any extra maths here.
  */
-public final class LyricsPlayer implements ClientTickEvents.StartLevelTick {
+public final class LyricsPlayer implements ClientTickEvents.StartWorldTick {
     /** A jump backwards bigger than this counts as the user seeking. */
     private static final long BACKWARD_SEEK_MILLIS = 500;
     /** A jump forward bigger than this counts as seeking or a stall, so lines are skipped silently. */
