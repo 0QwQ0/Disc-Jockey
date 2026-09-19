@@ -146,7 +146,13 @@ public class SongListWidget extends ObjectSelectionList<SongListWidget.ListEntry
                 context.fill(x + 1, y + 1, x + entryWidth - 1, y + entryHeight - 1, 0xFF000000);
             }
 
-            drawText(context, song.displayName, x + 36, y + 6, entryWidth - 40, isSelected ? 0xFFFFFFFF : 0xFF808080);
+            String nameText = client.font.plainSubstrByWidth(song.displayName, entryWidth - 40);
+            context.text(client.font, nameText, x + 36, y + 6, isSelected ? 0xFFFFFFFF : 0xFF808080);
+            if (song.lyrics != null) {
+                // Marker for a song that has a .lrc file next to it, right after the name.
+                int iconX = Math.min(x + 36 + client.font.width(nameText) + 3, x + entryWidth - 16);
+                context.blit(RenderPipelines.GUI_TEXTURED, ICONS, iconX, y + 5, 0.0f, 36.0f, 13, 12, 52, 48);
+            }
             if (songListWidget.showRelativePath) {
                 drawText(context, song.relativePath, x + 36, y + 18, entryWidth - 40, 0xFF808080);
             }
@@ -168,10 +174,10 @@ public class SongListWidget extends ObjectSelectionList<SongListWidget.ListEntry
             // song already is in the playlist.
             int playlistU = inPlaylist ? 0 : (overPlaylistButton ? 13 : 0);
             int playlistV = inPlaylist ? 24 : 12;
-            context.blit(RenderPipelines.GUI_TEXTURED, ICONS, x + 4, y + 3, (float) playlistU, (float) playlistV, 13, 12, 52, 36);
+            context.blit(RenderPipelines.GUI_TEXTURED, ICONS, x + 4, y + 3, (float) playlistU, (float) playlistV, 13, 12, 52, 48);
 
             int u = (favorite ? 26 : 0) + (isOverFavoriteButton(mouseX, mouseY) ? 13 : 0);
-            context.blit(RenderPipelines.GUI_TEXTURED, ICONS, x + 17, y + 3, (float)u, 0.0f, 13, 12, 52, 36);
+            context.blit(RenderPipelines.GUI_TEXTURED, ICONS, x + 17, y + 3, (float)u, 0.0f, 13, 12, 52, 48);
         }
 
         @Override
