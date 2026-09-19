@@ -133,6 +133,9 @@ public class PlaylistWidget extends ObjectSelectionList<PlaylistWidget.PlaylistE
             }
             widget.setSelected(this);
             if (widget.onSelectionChanged != null) widget.onSelectionChanged.run();
+            // Double clicking a row switches straight to that song. PlaylistManager#play stops
+            // whatever is running first, so this works both while playing and while idle.
+            if (doubleClick && event.button() == 0) PlaylistManager.play(song);
             return true;
         }
 
