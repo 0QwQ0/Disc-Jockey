@@ -85,5 +85,9 @@
   "disc_jockey.screen.shuffle.on": "RND",
   "disc_jockey.screen.shuffle.off": "ORD",
   "disc_jockey.screen.shuffle.on.tooltip": "Play order: random",
-  "disc_jockey.screen.shuffle.off.tooltip": "Play order: as stored in the playlist"
+  "disc_jockey.screen.shuffle.off.tooltip": "Play order: as stored in the playlist",
+  "text.autoconfig.disc_jockey.option.packetRateGreenMax": "Packet rate: green up to",
+  "text.autoconfig.disc_jockey.option.packetRateGreenMax.@Tooltip": "While a song plays the mod sends note block interaction packets. As long as the rate shown in the song selection screen stays at or below this many packets per second it is drawn green.",
+  "text.autoconfig.disc_jockey.option.packetRateYellowMax": "Packet rate: yellow up to",
+  "text.autoconfig.disc_jockey.option.packetRateYellowMax.@Tooltip": "Up to this many packets per second the rate is drawn yellow, above it red. Should not be lower than the green threshold."
 }
