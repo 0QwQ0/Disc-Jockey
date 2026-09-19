@@ -4,6 +4,9 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.multiplayer.ClientLevel;
 import org.jspecify.annotations.NonNull;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Walks the song position and pushes the matching lyric lines out, either to public chat or to the
  * players nearby (see {@link LyricsChat}).
@@ -49,7 +52,10 @@ public final class LyricsPlayer implements ClientTickEvents.StartLevelTick {
 
         if (lastSongMillis >= 0) {
             long delta = songMillis - lastSongMillis;
-            if (delta < -BACKWARD_SEEK_MILLIS || delta > FORWARD_SKIP_MILLIS) {
+            // At high playback speeds a single stalled frame already moves the song clock several
+            // seconds ahead, so the limit has to grow with the speed to avoid dropping lines.
+            long forwardLimit = (long) (FORWARD_SKIP_MILLIS * Math.max(1.0f, Main.SONG_PLAYER.speed));
+            if (delta < -BACKWARD_SEEK_MILLIS || delta > forwardLimit) {
                 // Seeked (or the game stalled): jump to the right line without replaying the ones
                 // in between, which would otherwise dump a burst of messages into chat.
                 nextIndex = lyrics.indexAt(songMillis) + 1;
@@ -85,5 +91,22 @@ public final class LyricsPlayer implements ClientTickEvents.StartLevelTick {
     public static boolean hasLyrics() {
         Song playing = Main.SONG_PLAYER.song;
         return playing != null && playing.lyrics != null;
+    }
+
+    /**
+     * The lines the preview shows: the line the song is on plus the next one, or the first two
+     * lines while the song is still before its first lyric.
+     */
+    public static List<Lyrics.Line> previewLines() {
+        Song playing = Main.SONG_PLAYER.song;
+        if (playing == null || playing.lyrics == null) return List.of();
+
+        Lyrics lyrics = playing.lyrics;
+        int index = lyrics.indexAt((long) (Main.SONG_PLAYER.getSongElapsedSeconds() * 1000));
+        int first = Math.max(0, index);
+        List<Lyrics.Line> lines = new ArrayList<>(2);
+        if (first < lyrics.size()) lines.add(lyrics.line(first));
+        if (first + 1 < lyrics.size()) lines.add(lyrics.line(first + 1));
+        return lines;
     }
 }

@@ -90,8 +90,7 @@
   "text.autoconfig.disc_jockey.option.packetRateGreenMax.@Tooltip": "While a song plays the mod sends note block interaction packets. As long as the rate shown in the song selection screen stays at or below this many packets per second it is drawn green.",
   "text.autoconfig.disc_jockey.option.packetRateYellowMax": "Packet rate: yellow up to",
   "text.autoconfig.disc_jockey.option.packetRateYellowMax.@Tooltip": "Up to this many packets per second the rate is drawn yellow, above it red. Should not be lower than the green threshold.",
-  "disc_jockey.lyrics.selector_not_allowed": "Disc Jockey: this server does not allow target selectors, so private lyrics are now sent to one player at a time.",
-  "disc_jockey.lyrics.dm_warning": "Disc Jockey: %s players are inside the private message radius.\n\nMinecraft only allows about one message or command per second, so with this many players the lyrics reach each of them slowly and the server may still treat it as spam.\n\nUse public chat output instead?",
+  "disc_jockey.lyrics.selector_not_allowed": "Disc Jockey: this server does not allow target selectors, so private lyrics are now sent to one player at a time.",  "disc_jockey.lyrics.dm_warning": "Disc Jockey: %s players are inside the private message radius.\n\nMinecraft only allows about one message or command per second, so with this many players the lyrics reach each of them slowly and the server may still treat it as spam.\n\nUse public chat output instead?",
   "text.autoconfig.disc_jockey.option.lyricsMinIntervalMs": "Lyrics: minimum delay (ms)",
   "text.autoconfig.disc_jockey.option.lyricsMinIntervalMs.@Tooltip": "Minecraft disconnects players who send chat messages or commands faster than roughly once per second, so lyrics are throttled to at least this delay.",
   "text.autoconfig.disc_jockey.option.lyricsDmRadius": "Lyrics: private message radius",
@@ -103,5 +102,12 @@
   "text.autoconfig.disc_jockey.option.lyricsDispatch": "Lyrics: private message method",
   "text.autoconfig.disc_jockey.option.lyricsDispatch.@Tooltip[0]": "Selector: one command addresses everyone in range, but most servers only allow selectors for operators.",
   "text.autoconfig.disc_jockey.option.lyricsDispatch.@Tooltip[1]": "One by one: a separate command per player, spread over time.",
-  "text.autoconfig.disc_jockey.option.lyricsDispatch.@Tooltip[2]": "Auto: try the selector first and fall back to one by one when the server refuses it."
+  "text.autoconfig.disc_jockey.option.lyricsDispatch.@Tooltip[2]": "Auto: try the selector first and fall back to one by one when the server refuses it.",
+  "disc_jockey.screen.lyrics": "Lyrics",
+  "disc_jockey.screen.lyrics.tooltip": "Send the lyrics of the playing song into chat. The preview at the bottom always shows them, whether this is on or not.",
+  "disc_jockey.screen.lyrics.public": "Public",
+  "disc_jockey.screen.lyrics.public.tooltip": "Checked: lyrics go to public chat. Unchecked: they are only sent to the players near you.",
+  "disc_jockey.screen.lyrics.warning": "Send lyrics in private?",
+  "disc_jockey.screen.lyrics.targets": "%s players in range",
+  "disc_jockey.screen.lyrics.empty": "No lyrics at this point"
 }
