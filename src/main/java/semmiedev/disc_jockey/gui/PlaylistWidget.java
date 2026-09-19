@@ -105,8 +105,14 @@ public class PlaylistWidget extends ObjectSelectionList<PlaylistWidget.PlaylistE
             Minecraft client = Minecraft.getInstance();
             String label = (index + 1) + ". " + song.displayName;
             String trimmed = client.font.plainSubstrByWidth(label, entryWidth - 32);
-            int color = isSelected && !isPlaying ? 0xFFFFFFFF : 0xFFCFCFCF;
+            // The playing row gets a bright green label on top of its green background, and a song
+            // with a paired .lrc file gets a marker right after its name.
+            int color = isPlaying ? 0xFF55FF55 : (isSelected ? 0xFFFFFFFF : 0xFFCFCFCF);
             context.text(client.font, trimmed, x + 3, y + 6, color);
+            if (song.lyrics != null) {
+                int iconX = Math.min(x + 3 + client.font.width(trimmed) + 3, x + entryWidth - 34);
+                context.blit(RenderPipelines.GUI_TEXTURED, ICONS, iconX, y + 5, 0.0f, 36.0f, 13, 12, 52, 48);
+            }
 
             boolean overRemove = isOverRemoveButton(mouseX, mouseY) && hovered;            if (hovered) {
                 if (overRemove) {
@@ -118,7 +124,7 @@ public class PlaylistWidget extends ObjectSelectionList<PlaylistWidget.PlaylistE
 
             // Right pointing arrow at the far right of the row, on the playlist icon row.
             int u = overRemove ? 39 : 26;
-            context.blit(RenderPipelines.GUI_TEXTURED, ICONS, x + entryWidth - 17, y + 3, (float) u, 12.0f, 13, 12, 52, 36);
+            context.blit(RenderPipelines.GUI_TEXTURED, ICONS, x + entryWidth - 17, y + 3, (float) u, 12.0f, 13, 12, 52, 48);
         }
 
         @Override
