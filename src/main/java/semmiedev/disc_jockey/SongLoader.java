@@ -15,9 +15,14 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 
 public class SongLoader {
+    public static final String SONG_EXTENSION = ".nbs";
+    public static final String LYRICS_EXTENSION = ".lrc";
+
     public static final ArrayList<Song> SONGS = new ArrayList<>();
     public static final ArrayList<String> SONG_SUGGESTIONS = new ArrayList<>();
     public static final ArrayList<String> DIRECTORIES = new ArrayList<>();
@@ -32,6 +37,7 @@ public class SongLoader {
         Thread.startVirtualThread(() -> {
             ArrayList<Song> loadedSongs = new ArrayList<>();
             ArrayList<String> loadedDirectories = new ArrayList<>();
+            ArrayList<Path> loadedLyrics = new ArrayList<>();
             try {
                 Files.walkFileTree(Main.songsFolder.toPath(), new SimpleFileVisitor<>() {
                     @Override
@@ -44,6 +50,15 @@ public class SongLoader {
                     @Override
                     public FileVisitResult visitFile(Path path, BasicFileAttributes attributes) {
                         if (!attributes.isRegularFile()) return FileVisitResult.CONTINUE;
+                        String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
+                        if (name.endsWith(LYRICS_EXTENSION)) {
+                            // Lyrics are paired with their song after everything has been read.
+                            loadedLyrics.add(path);
+                            return FileVisitResult.CONTINUE;
+                        }
+                        // Anything that is not a song is skipped instead of being fed to the NBS
+                        // parser, which used to log an error for every stray file.
+                        if (!name.endsWith(SONG_EXTENSION)) return FileVisitResult.CONTINUE;
                         try {
                             Song song = loadSong(path.toFile(), relativePath(path));
                             if (song != null) loadedSongs.add(song);
@@ -73,6 +88,7 @@ public class SongLoader {
                 Main.config.favorites.removeIf(favorite -> SONGS.stream().map(song -> song.relativePath).noneMatch(favorite::equals));
                 // Songs were recreated, so playlist entries have to be resolved again.
                 PlaylistManager.resolveFromConfig();
+                attachLyrics(loadedLyrics);
                 reloadVersion++;
                 loadingSongs = false;
                 if (showToast) SystemToast.add(client.gui.toastManager(), SystemToast.SystemToastId.PACK_LOAD_FAILURE, Main.NAME, Component.translatable(Main.MOD_ID + ".loading_done"));
@@ -81,8 +97,61 @@ public class SongLoader {
         });
     }
 
-    public static void addSong(Song song) {
-        song.entry = new SongListWidget.SongEntry(song, SONGS.size());
+    /**
+     * Pairs every song with a .lrc file from the same directory: an exactly matching name wins,
+     * otherwise the first file whose name starts with the song name followed by a separator (so
+     * that "song.nbs" does not pick up "songbook.lrc").
+     */
+    private static void attachLyrics(List<Path> lyricsFiles) {
+        if (lyricsFiles.isEmpty()) return;
+
+        HashMap<String, HashMap<String, Path>> byDirectory = new HashMap<>();
+        for (Path path : lyricsFiles) {
+            String relative = relativePath(path);
+            int separator = relative.lastIndexOf('/');
+            String directory = separator < 0 ? "" : relative.substring(0, separator);
+            String name = relative.substring(separator + 1);
+            name = name.substring(0, name.length() - LYRICS_EXTENSION.length()).toLowerCase(Locale.ROOT);
+            byDirectory.computeIfAbsent(directory, key -> new HashMap<>()).put(name, path);
+        }
+
+        for (Song song : SONGS) {
+            song.lyrics = null;
+            String relative = song.relativePath;
+            int separator = relative.lastIndexOf('/');
+            String directory = separator < 0 ? "" : relative.substring(0, separator);
+            String name = relative.substring(separator + 1);
+            if (name.toLowerCase(Locale.ROOT).endsWith(SONG_EXTENSION)) {
+                name = name.substring(0, name.length() - SONG_EXTENSION.length());
+            }
+            name = name.toLowerCase(Locale.ROOT);
+
+            HashMap<String, Path> candidates = byDirectory.get(directory);
+            if (candidates == null) continue;
+
+            Path match = candidates.get(name);
+            if (match == null) {
+                String best = null;
+                for (String candidate : candidates.keySet()) {
+                    if (candidate.length() <= name.length() || !candidate.startsWith(name)) continue;
+                    char following = candidate.charAt(name.length());
+                    if (following != '.' && following != '_' && following != '-' && following != ' ') continue;
+                    if (best == null || candidate.compareTo(best) < 0) best = candidate;
+                }
+                if (best == null) continue;
+                match = candidates.get(best);
+                Main.LOGGER.info("Using {} as the lyrics for {}", best + LYRICS_EXTENSION, song.relativePath);
+            }
+
+            try {
+                song.lyrics = Lyrics.parse(match);
+            } catch (IOException exception) {
+                Main.LOGGER.warn("Unable to read lyrics {}", match, exception);
+            }
+        }
+    }
+
+    public static void addSong(Song song) {        song.entry = new SongListWidget.SongEntry(song, SONGS.size());
         song.entry.favorite = Main.config.favorites.contains(song.relativePath);
         SONGS.add(song);
         SONG_SUGGESTIONS.add(song.relativePath);
