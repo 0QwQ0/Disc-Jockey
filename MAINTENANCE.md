@@ -71,6 +71,6 @@ asset name, for example `v1.9.4-mc1.21.11` / `disc_jockey-1.9.4-mc1.21.11.jar`.
 ## Verification status
 
 Compilation and packaging are verified here, including that the mixin was remapped to real intermediary
-targets (`method_43207`, `field_3729` on `class_638`). In-game behaviour still has to be checked by hand on
-a 1.21.11 client; the pieces the compiler cannot judge are the HUD overlay position, the omnidirectional
-note block sound mixin actually applying, and the GUI hit boxes for the per-row icons.
+targets (`method_43207`, `field_3729` on `class_638`). The build was also **verified in game on a 1.21.11
+client** (playlist, playback controls, double click, lyrics output and preview, packet rate readout, HUD
+overlay and the omnidirectional note block sounds option).
