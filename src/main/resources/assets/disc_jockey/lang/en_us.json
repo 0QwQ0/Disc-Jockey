@@ -109,6 +109,6 @@
   "disc_jockey.screen.lyrics.public": "Public",
   "disc_jockey.screen.lyrics.public.tooltip": "Checked: lyrics go to public chat. Unchecked: they are only sent to the players near you.",
   "disc_jockey.screen.lyrics.warning": "Send lyrics in private?",
-  "disc_jockey.screen.lyrics.targets": "%s players in range",
+  "disc_jockey.screen.lyrics.targets": "%s nearby",
   "disc_jockey.screen.lyrics.empty": "No lyrics at this point"
 }
