@@ -16,12 +16,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 
 public class SongLoader {
     public static final String SONG_EXTENSION = ".nbs";
     public static final String LYRICS_EXTENSION = ".lrc";
+
+    /** Note capacity the growable note buffer starts with; it doubles whenever it runs full. */
+    private static final int INITIAL_NOTE_CAPACITY = 1024;
 
     public static final ArrayList<Song> SONGS = new ArrayList<>();
     public static final ArrayList<String> SONG_SUGGESTIONS = new ArrayList<>();
@@ -208,6 +212,14 @@ public class SongLoader {
 
             short tick = -1;
             short jumps;
+            // Notes are collected in a buffer that doubles instead of being appended to the song's
+            // array with one Arrays.copyOf per note, which copies the whole array for every single
+            // note of the song.
+            long[] notes = new long[INITIAL_NOTE_CAPACITY];
+            int noteCount = 0;
+            // uniqueNotes used to be searched with ArrayList#contains, a linear scan over up to a few
+            // hundred instrument and key combinations, repeated once per note of the song.
+            HashSet<Note> seenNotes = new HashSet<>();
             while ((jumps = reader.readShort()) != 0) {
                 tick += jumps;
                 short layer = -1;
@@ -231,12 +243,14 @@ public class SongLoader {
                     }
 
                     Note note = new Note(Note.INSTRUMENTS[instrumentId], noteId);
-                    if (!song.uniqueNotes.contains(note)) song.uniqueNotes.add(note);
+                    if (seenNotes.add(note)) song.uniqueNotes.add(note);
 
-                    song.notes = Arrays.copyOf(song.notes, song.notes.length + 1);
-                    song.notes[song.notes.length - 1] = tick | layer << Note.LAYER_SHIFT | (long)instrumentId << Note.INSTRUMENT_SHIFT | (long)noteId << Note.NOTE_SHIFT;
+                    if (noteCount == notes.length) notes = Arrays.copyOf(notes, notes.length * 2);
+                    notes[noteCount++] = tick | layer << Note.LAYER_SHIFT | (long)instrumentId << Note.INSTRUMENT_SHIFT | (long)noteId << Note.NOTE_SHIFT;
                 }
             }
+
+            song.notes = Arrays.copyOf(notes, noteCount);
 
             return song;
         }
