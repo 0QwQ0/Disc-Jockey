@@ -175,7 +175,7 @@ public class SongListWidget extends ObjectSelectionList<SongListWidget.ListEntry
         }
 
         @Override
-        public boolean mouseClicked(MouseButtonEvent event, boolean something) {
+        public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
             int mouseX = (int) event.x();
             int mouseY = (int) event.y();
             if (isOverPlaylistButton(mouseX, mouseY)) {
@@ -193,6 +193,9 @@ public class SongListWidget extends ObjectSelectionList<SongListWidget.ListEntry
             }
             songListWidget.setSelected(this);
             if (songListWidget.onSelectionChanged != null) songListWidget.onSelectionChanged.run();
+            // Double clicking plays the song right away, matching the play button, which treats
+            // a song list selection as one-shot playback rather than a playlist position.
+            if (doubleClick && event.button() == 0) PlaylistManager.playOneShot(song);
             return true;
         }
 
