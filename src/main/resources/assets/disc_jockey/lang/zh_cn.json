@@ -91,7 +91,7 @@
   "text.autoconfig.disc_jockey.option.packetRateYellowMax": "发包速率：黄色上限",
   "text.autoconfig.disc_jockey.option.packetRateYellowMax.@Tooltip": "每秒不超过该值时显示为黄色，超过则显示为红色。不应低于绿色上限。",
   "disc_jockey.lyrics.selector_not_allowed": "Disc Jockey：该服务器不允许使用目标选择器，私聊歌词已改为逐个玩家发送。",
-  "disc_jockey.lyrics.dm_warning": "Disc Jockey：私聊半径内有 %s 名玩家。\n\n没有管理员权限时 Minecraft 只允许 /msg 一次指定一个玩家，所以每句歌词都要按人数逐条发送，而每秒明显超过一条命令会被服务器踢出。\n\n收件人数会限制在设置的私聊突发上限内，超出预算的歌词会被整句跳过（不会只发给其中一部分）；歌词之间至少间隔 %s 秒。想覆盖更多玩家请到设置中调高突发上限，或改用公屏输出？",
+  "disc_jockey.lyrics.dm_warning": "Disc Jockey：私聊半径内有 %s 名玩家。\n\n没有管理员权限时 Minecraft 只允许 /msg 一次指定一个玩家，所以每句歌词都要按人数逐条发送，而每秒明显超过一条命令会被服务器踢出。\n\n每句歌词只发给最近的若干名玩家，数量不超过设置的私聊突发上限（最多 9 名），超出预算的歌词会被整句跳过（不会只发给其中一部分）；歌词之间至少间隔 %s 秒。想覆盖更多玩家请到设置中调高突发上限，或改用公屏输出？",
   "text.autoconfig.disc_jockey.option.lyricsMinIntervalMs": "歌词：最小发送间隔（毫秒）",
   "text.autoconfig.disc_jockey.option.lyricsMinIntervalMs.@Tooltip": "Minecraft 对每秒超过约一条的聊天或命令会直接踢出，因此歌词至少间隔该时间发送。",
   "text.autoconfig.disc_jockey.option.lyricsDmRadius": "歌词：私聊半径",

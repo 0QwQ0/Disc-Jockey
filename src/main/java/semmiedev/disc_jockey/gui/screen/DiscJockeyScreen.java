@@ -461,7 +461,9 @@ public class DiscJockeyScreen extends Screen {
             Main.configHolder.save();
             return;
         }
-        int targets = LyricsDispatch.targetCount();
+        // The count has to be taken before the recipients are clamped to the command burst, which
+        // can only ever reach nine players and would keep this confirmation unreachable.
+        int targets = LyricsDispatch.playersInRadius();
         if (targets <= LyricsDispatch.WARN_TARGET_COUNT) {
             Main.config.lyricsOutputToPublic = false;
             Main.configHolder.save();
