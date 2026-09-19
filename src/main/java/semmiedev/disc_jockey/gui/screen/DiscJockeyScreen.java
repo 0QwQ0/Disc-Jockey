@@ -58,7 +58,12 @@ public class DiscJockeyScreen extends Screen {
     private static final Component PLAYBACK_SPEED = Component.translatable(Main.MOD_ID + ".screen.playback_speed");
     /** Height of the two line lyrics preview strip. */
     private static final int LYRICS_PREVIEW_HEIGHT = 24;
+    /** How far one press of an offset button moves the lyrics. */
+    private static final long LYRICS_OFFSET_STEP_MILLIS = 500;
+    private static final int LYRICS_OFFSET_BUTTON_WIDTH = 30;
+    private static final int LYRICS_OFFSET_BUTTON_HEIGHT = 16;
     private static final SystemToast.SystemToastId INVALID_SPEED_TOAST = new SystemToast.SystemToastId();
+    private static final SystemToast.SystemToastId LYRICS_FILE_TOAST = new SystemToast.SystemToastId();
 
     private StringWidget songTitle;
     private StringWidget songState;
@@ -76,6 +81,9 @@ public class DiscJockeyScreen extends Screen {
     private Checkbox lyricsCheckbox, lyricsPublicCheckbox;
     private int lyricsRowY;
     private int lyricsPreviewTop;
+    /** Space the offset buttons and the offset readout take at the end of the preview strip. */
+    private int lyricsOffsetZoneWidth;
+    private Button lyricsEarlierButton, lyricsLaterButton;
     private boolean inlineLyricsRow;
     private boolean showLyricsPreview;
     private Component refreshIdleLabel = REFRESH_SONGS;
@@ -331,6 +339,36 @@ public class DiscJockeyScreen extends Screen {
         showLyricsPreview = (height - 64) - previewPlaylistTop >= 36;
         int playlistTop = showLyricsPreview ? previewPlaylistTop : plainPlaylistTop;
 
+        // Offset buttons at the right hand end of the preview strip: they move the lyrics of the
+        // playing song and rewrite its .lrc file. The readout of the accumulated offset sits left of
+        // them, so its width is reserved whether it is drawn or not and the buttons never move.
+        int offsetReadoutWidth = font.width("+99.9s") + 4;
+        lyricsOffsetZoneWidth = showLyricsPreview
+                ? LYRICS_OFFSET_BUTTON_WIDTH * 2 + 4 + offsetReadoutWidth
+                : 0;
+        int lyricsButtonsY = lyricsPreviewTop + (LYRICS_PREVIEW_HEIGHT - LYRICS_OFFSET_BUTTON_HEIGHT) / 2;
+        int lyricsButtonsRight = width / 2 - 4;
+
+        lyricsLaterButton = Button.builder(Component.literal("+0.5"), _ -> shiftLyrics(LYRICS_OFFSET_STEP_MILLIS))
+                .pos(lyricsButtonsRight - LYRICS_OFFSET_BUTTON_WIDTH, lyricsButtonsY)
+                .size(LYRICS_OFFSET_BUTTON_WIDTH, LYRICS_OFFSET_BUTTON_HEIGHT)
+                .build();
+        lyricsLaterButton.setTooltip(Tooltip.create(Component.translatable(Main.MOD_ID + ".screen.lyrics.offset.later.tooltip")));
+        addRenderableWidget(lyricsLaterButton);
+
+        lyricsEarlierButton = Button.builder(Component.literal("-0.5"), _ -> shiftLyrics(-LYRICS_OFFSET_STEP_MILLIS))
+                .pos(lyricsButtonsRight - LYRICS_OFFSET_BUTTON_WIDTH * 2 - 4, lyricsButtonsY)
+                .size(LYRICS_OFFSET_BUTTON_WIDTH, LYRICS_OFFSET_BUTTON_HEIGHT)
+                .build();
+        lyricsEarlierButton.setTooltip(Tooltip.create(Component.translatable(Main.MOD_ID + ".screen.lyrics.offset.earlier.tooltip")));
+        addRenderableWidget(lyricsEarlierButton);
+        // The tick method keeps this in sync; the screen may well be opened while nothing plays.
+        boolean showOffsetButtons = showLyricsPreview && LyricsPlayer.hasLyrics();
+        lyricsEarlierButton.visible = showOffsetButtons;
+        lyricsEarlierButton.active = showOffsetButtons;
+        lyricsLaterButton.visible = showOffsetButtons;
+        lyricsLaterButton.active = showOffsetButtons;
+
         // Playlist panel, mirroring the vertical extent of the song list on the right.
         int playlistHeight = Math.max(20, (height - 64) - playlistTop);
         playlistWidget = new PlaylistWidget(minecraft, leftWidth, playlistHeight, playlistTop, 20);
@@ -392,6 +430,25 @@ public class DiscJockeyScreen extends Screen {
         updatePlaybackSpeedInput();
         addRenderableWidget(speedInput);
         addRenderableOnly(new StringWidget(cursor + speedInputWidth + 2, bottomY, xWidth, 20, Component.literal("x"), font));
+    }
+
+    /**
+     * Moves the lyrics of the playing song and rewrites its .lrc file, so the new timing is still
+     * there after the song list is reloaded. Nothing happens without a playing song or without a
+     * paired lyrics file, and a file that cannot be written leaves the lyrics as they were.
+     */
+    private void shiftLyrics(long deltaMillis) {
+        Song playing = Main.SONG_PLAYER.song;
+        if (playing == null || playing.lyrics == null) return;
+        try {
+            playing.lyrics.shiftBy(deltaMillis);
+        } catch (IOException exception) {
+            Main.LOGGER.warn("Unable to rewrite the lyrics file {}", playing.lyrics.file(), exception);
+            SystemToast.add(minecraft.gui.toastManager(), LYRICS_FILE_TOAST,
+                    Component.translatable(Main.MOD_ID + ".screen.lyrics.offset.failed"),
+                    Component.translatable(Main.MOD_ID + ".screen.lyrics.offset.failed.message",
+                            playing.lyrics.file().getFileName().toString()));
+        }
     }
 
     /**
@@ -540,15 +597,28 @@ public class DiscJockeyScreen extends Screen {
 
         // Lyrics preview, only while the playing song has a paired lyric file.
         if (showLyricsPreview && LyricsPlayer.hasLyrics()) {
+            // The offset buttons sit at the end of the strip, so the two lines stop before them.
+            boolean offsetButtons = lyricsEarlierButton.visible;
+            int textRight = leftX + leftWidth - 4 - (offsetButtons ? lyricsOffsetZoneWidth : 0);
+            int textWidth = Math.max(20, textRight - (leftX + 4));
             List<Lyrics.Line> lines = LyricsPlayer.previewLines();
             if (lines.isEmpty()) {
                 context.centeredText(font, Component.translatable(Main.MOD_ID + ".screen.lyrics.empty"),
                         leftX + leftWidth / 2, lyricsPreviewTop + 8, 0xFF808080);
             } else {
-                context.text(font, font.plainSubstrByWidth(lines.get(0).text(), leftWidth - 8), leftX + 4, lyricsPreviewTop + 4, 0xFFFFFFFF);
+                context.text(font, font.plainSubstrByWidth(lines.get(0).text(), textWidth), leftX + 4, lyricsPreviewTop + 4, 0xFFFFFFFF);
                 if (lines.size() > 1) {
-                    context.text(font, font.plainSubstrByWidth(lines.get(1).text(), leftWidth - 8), leftX + 4, lyricsPreviewTop + 15, 0xFF909090);
+                    context.text(font, font.plainSubstrByWidth(lines.get(1).text(), textWidth), leftX + 4, lyricsPreviewTop + 15, 0xFF909090);
                 }
+            }
+
+            // Total offset the buttons have applied to this song so far, so it is clear how far the
+            // lyrics have been moved away from the times the file originally had.
+            long offset = LyricsPlayer.offsetMillis();
+            if (offsetButtons && offset != 0) {
+                String offsetText = String.format(Locale.ROOT, "%+.1fs", offset / 1000.0);
+                context.text(font, offsetText, lyricsEarlierButton.getX() - 4 - font.width(offsetText),
+                        lyricsPreviewTop + 8, 0xFFCCCCCC);
             }
         }
     }
@@ -651,6 +721,16 @@ public class DiscJockeyScreen extends Screen {
 
         previewButton.setMessage(Main.PREVIEWER.running ? PREVIEW_STOP : PREVIEW);
         playButton.setMessage(Main.SONG_PLAYER.running ? PLAY_STOP : PLAY);
+
+        // The offset buttons only belong to the preview strip, and only make sense while the playing
+        // song actually has a .lrc file to rewrite.
+        boolean offsetButtons = showLyricsPreview && LyricsPlayer.hasLyrics();
+        if (lyricsEarlierButton.visible != offsetButtons) {
+            lyricsEarlierButton.visible = offsetButtons;
+            lyricsEarlierButton.active = offsetButtons;
+            lyricsLaterButton.visible = offsetButtons;
+            lyricsLaterButton.active = offsetButtons;
+        }
 
         updateLoadingState();
         if (SongLoader.loadingSongs) return;
