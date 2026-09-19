@@ -26,16 +26,15 @@ public final class LyricsDispatch {
     private static final long SELECTOR_PROBE_MILLIS = 3000;
 
     /**
-     * How many commands may be sent back to back. Vanilla builds
-     * {@code commandSpamThrottler = new TickThrottler(20, 20 * commandSpamThresholdSeconds)}, so with
-     * the default ten second threshold a non operator is disconnected on the tenth command inside the
-     * window. Staying below that keeps a whole lyric line deliverable in one go.
+     * Highest burst that still fits into the vanilla spam window: the server disconnects a non
+     * operator on the tenth command, so nine commands can be spent in one go.
      */
-    private static final int COMMAND_BURST = 8;
+    public static final int MAX_COMMAND_BURST = 9;
     /** Long term command rate vanilla tolerates: one per second. */
     private static final double COMMANDS_PER_SECOND = 1.0;
 
-    private static double availableCommands = COMMAND_BURST;
+    /** Commands left in the burst, or -1 before the first line has been sent. */
+    private static double availableCommands = -1;
     private static long lastRefillAt = System.currentTimeMillis();
 
     private static boolean selectorRefused;
@@ -43,6 +42,16 @@ public final class LyricsDispatch {
     private static boolean warnedAboutSelector;
 
     private LyricsDispatch() {
+    }
+
+    /**
+     * How many commands may be sent back to back. Vanilla builds
+     * {@code commandSpamThrottler = new TickThrottler(20, 20 * commandSpamThresholdSeconds)}, so with
+     * the default ten second threshold a non operator is disconnected on the tenth command inside the
+     * window. Staying below that keeps a whole lyric line deliverable in one go.
+     */
+    public static int commandBurst() {
+        return Math.max(1, Math.min(MAX_COMMAND_BURST, Main.config.lyricsDmBurst));
     }
 
     /** Players inside the configured radius, nearest first, capped at the configured maximum. */
@@ -59,7 +68,10 @@ public final class LyricsDispatch {
         }
         result.sort(Comparator.comparingDouble(client.player::distanceToSqr));
 
-        int maximum = Math.max(1, Math.min(40, Main.config.lyricsDmMaxTargets));
+        // A line is only sent when it fits the command budget as a whole, so a target limit above
+        // the burst would make every line too expensive and silently stop all delivery. The
+        // effective number of recipients is clamped to the burst instead.
+        int maximum = Math.max(1, Math.min(40, Math.min(Main.config.lyricsDmMaxTargets, commandBurst())));
         return result.size() > maximum ? new ArrayList<>(result.subList(0, maximum)) : result;
     }
 
@@ -130,13 +142,20 @@ public final class LyricsDispatch {
      * sent to only some of them.
      */
     private static synchronized boolean takeCommands(int commands) {
+        int burst = commandBurst();
+        if (availableCommands < 0 || availableCommands > burst) {
+            // First line of the session, or the user lowered the budget: start from a full burst
+            // instead of keeping a larger one from the previous setting.
+            availableCommands = burst;
+            lastRefillAt = System.currentTimeMillis();
+        }
         long now = System.currentTimeMillis();
         double refill = (now - lastRefillAt) / 1000.0 * COMMANDS_PER_SECOND;
         if (refill > 0) {
-            availableCommands = Math.min(COMMAND_BURST, availableCommands + refill);
+            availableCommands = Math.min(burst, availableCommands + refill);
             lastRefillAt = now;
         }
-        if (commands > COMMAND_BURST || availableCommands < commands) return false;
+        if (commands > burst || availableCommands < commands) return false;
         availableCommands -= commands;
         return true;
     }
